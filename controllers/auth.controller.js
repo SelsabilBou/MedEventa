@@ -9,7 +9,7 @@ const register = async (req, res) => {
   let { nom, prenom, email, mot_de_passe, role, photo, institution, domaine_recherche } = req.body;
 
   // Rôle forcé côté serveur (sécurité)
-  const allowedPublicRoles = ['PARTICIPANT', 'COMMUNICANT', 'ORGANISATEUR'];
+  const allowedPublicRoles = ['PARTICIPANT', 'COMMUNICANT', 'ORGANISATEUR' , 'INVITE'];
   if (!allowedPublicRoles.includes(role)) {
     role = 'PARTICIPANT'; // par défaut
   }
