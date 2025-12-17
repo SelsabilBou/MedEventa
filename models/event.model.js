@@ -16,10 +16,8 @@ const createEvent = (data, callback) => {
     callback(null, result.insertId); // Retourne l'ID de l'événement créé
   });
 };
-<<<<<<< HEAD
 
 module.exports = { createEvent };
-=======
 const addComiteMember = (comiteId, userId, callback) => {
   const sql = `
     INSERT INTO membre_comite (utilisateur_id, comite_id)
@@ -152,4 +150,3 @@ module.exports = {
   getEvents,
   getEventDetails,
 };
->>>>>>> 2c8c29f (import old project)
