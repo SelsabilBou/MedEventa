@@ -4,7 +4,7 @@ const { body } = require('express-validator');
 const baseInscriptionValidation = [
   body('profil')
     .notEmpty().withMessage('Le profil est requis')
-    .isIn(['participant', 'communicant', 'invite'])
+    .isIn(['PARTICIPANT', 'COMMUNICANT', 'INVITE'])
     .withMessage('Profil invalide'),
 ];
 

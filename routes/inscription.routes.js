@@ -2,7 +2,9 @@
 const express = require('express');
 const router = express.Router();
 
-const { register, validateInscription } = require('../controllers/inscription.controller');
+const { register, validateInscription ,
+  getPaymentStatusController,
+  updatePaymentStatusController,} = require('../controllers/inscription.controller');
 const { verifyToken } = require('../middlewares/auth.middleware');
 const { requirePermission } = require('../middlewares/permissions');
 
@@ -14,5 +16,18 @@ router.post(
   validateInscription,
   register
 );
+// GET /api/inscriptions/:inscriptionId/payment-status  (user connecté)
+router.get(
+  '/:inscriptionId/payment-status',
+  verifyToken,
+  getPaymentStatusController
+);
 
+// PUT /api/inscriptions/:inscriptionId/payment-status  (admin/orga ONLY)
+router.put(
+  '/:inscriptionId/payment-status',
+  verifyToken,
+  requirePermission('manage_inscriptions'), // ou autre permission pour ORGA
+  updatePaymentStatusController
+);
 module.exports = router;

@@ -22,5 +22,30 @@ const registerInscription = (eventId, userId, profil, callback) => {
     callback(null, result.insertId);
   });
 };
+const getPaymentStatus = (inscriptionId, callback) => {
+  const sql = `
+    SELECT statut_paiement
+    FROM inscription
+    WHERE id = ?
+  `;
+  db.query(sql, [inscriptionId], (err, results) => {
+    if (err) return callback(err, null);
+    if (results.length === 0) return callback(null, null);
+    callback(null, results[0].statut_paiement);
+  });
+};
 
-module.exports = { registerInscription };
+const updatePaymentStatus = (inscriptionId, status, callback) => {
+  const sql = `
+    UPDATE inscription
+    SET statut_paiement = ?
+    WHERE id = ?
+  `;
+  db.query(sql, [status, inscriptionId], (err, result) => {
+    if (err) return callback(err, null);
+    callback(null, result.affectedRows);
+  });
+};
+
+module.exports = { registerInscription , getPaymentStatus,
+  updatePaymentStatus,};
