@@ -1,7 +1,7 @@
 // controllers/evaluation.controller.js
 const { validationResult } = require('express-validator');
 const db = require('../db');
-const { assignManual , getEvaluationForm, submitEvaluation } = require('../models/evaluation.model');
+const { assignManual , getEvaluationForm, submitEvaluation ,generateReport, } = require('../models/evaluation.model');
 
 // POST /api/evaluations/event/:eventId/assign-manual
 // Body: { "propositionId": 3, "evaluateurIds": [1, 2, 5] }
