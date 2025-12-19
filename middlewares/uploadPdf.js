@@ -4,7 +4,20 @@ const path = require("path");
 const fs = require("fs");
 
 const uploadDir = path.join(process.cwd(), "uploads", "communications");
-fs.mkdirSync(uploadDir, { recursive: true });
+
+// ✅ création dossier safe
+try {
+  fs.mkdirSync(uploadDir, { recursive: true });
+} catch (err) {
+  if (err.code === "EEXIST") {
+    // si quelque chose existe, vérifier que c'est un dossier
+    if (!fs.lstatSync(uploadDir).isDirectory()) {
+      throw new Error(`Le chemin existe mais ce n'est pas un dossier: ${uploadDir}`);
+    }
+  } else {
+    throw err;
+  }
+}
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
