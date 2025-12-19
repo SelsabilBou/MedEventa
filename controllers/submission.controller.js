@@ -1,25 +1,22 @@
 // controllers/submission.controller.js
 const { createSubmission } = require('../models/submission.model');
-const { isSubmissionOpen } = require('../models/event.model'); // ✅ NEW
+const { isSubmissionOpen } = require('../models/event.model');
 
 const createSubmissionController = (req, res) => {
   const { eventId } = req.params;
   const { titre, resume, type } = req.body;
 
-  // DEBUG (temporaire)
-  console.log('Content-Type:', req.headers['content-type']);
-  console.log('req.body:', req.body);
-  console.log('req.file:', req.file);
-  console.log('req.files:', req.files);
-
-  // 1) Vérifier que le PDF est bien envoyé
-  if (!req.file) {
-    return res
-      .status(400)
-      .json({ message: 'Fichier PDF requis (champ: fichier_pdf)' });
+  // 1) validations simples
+  if (!titre || !resume || !type) {
+    return res.status(400).json({ message: 'Champs requis: titre, resume, type' });
   }
 
-  // ✅ 2) Vérifier deadline / ouverture des soumissions
+  // 2) vérifier fichier (champ = resumePdf car route: upload.single('resumePdf'))
+  if (!req.file) {
+    return res.status(400).json({ message: 'Fichier PDF requis (champ: resumePdf)' });
+  }
+
+  // 3) vérifier deadline / ouverture des soumissions
   isSubmissionOpen(Number(eventId), (err, check) => {
     if (err) {
       console.error('DB error isSubmissionOpen:', err);
@@ -30,28 +27,25 @@ const createSubmissionController = (req, res) => {
       if (check.reason === 'EVENT_NOT_FOUND') {
         return res.status(404).json({ message: 'Événement introuvable' });
       }
-
       if (check.reason === 'DEADLINE_PASSED') {
         return res.status(403).json({
           message: 'Les soumissions sont fermées (date limite dépassée)',
           deadline: check.deadline,
         });
       }
-
       return res.status(403).json({ message: 'Soumission non autorisée' });
     }
 
-    // 3) Construire l'objet data pour le model
+    // ✅ 4) lier à l’auteur principal via JWT
     const data = {
       titre,
       resume,
       type,
       fichier_pdf: req.file.path,
-      auteur_id: req.user.id,
       evenement_id: Number(eventId),
+      id_auteur_principal: req.user.id
     };
 
-    // 4) Appeler le model
     createSubmission(data, (err2, submissionId) => {
       if (err2) {
         console.error('DB error createSubmission:', err2);

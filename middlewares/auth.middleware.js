@@ -1,5 +1,6 @@
 // middlewares/auth.middleware.js
 const jwt = require('jsonwebtoken');
+const { hasPermission } = require('./permissions'); // tu l'as déjà
 
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers['authorization']; // "Bearer xxxxx"
@@ -27,4 +28,12 @@ const requireRole = (roles) => (req, res, next) => {
   next();
 };
 
-module.exports = { verifyToken, requireRole };
+// ✅ middleware réutilisable pour vérifier une permission
+const requirePermission = (permission) => (req, res, next) => {
+  if (!req.user || !hasPermission(req.user.role, permission)) {
+    return res.status(403).json({ message: 'Permission refusée' });
+  }
+  next();
+};
+
+module.exports = { verifyToken, requireRole, requirePermission };

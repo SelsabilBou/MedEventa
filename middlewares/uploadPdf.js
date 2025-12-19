@@ -5,12 +5,10 @@ const fs = require("fs");
 
 const uploadDir = path.join(process.cwd(), "uploads", "communications");
 
-// ✅ création dossier safe
 try {
   fs.mkdirSync(uploadDir, { recursive: true });
 } catch (err) {
   if (err.code === "EEXIST") {
-    // si quelque chose existe, vérifier que c'est un dossier
     if (!fs.lstatSync(uploadDir).isDirectory()) {
       throw new Error(`Le chemin existe mais ce n'est pas un dossier: ${uploadDir}`);
     }
