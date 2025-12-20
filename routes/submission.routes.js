@@ -19,8 +19,8 @@ router.post(
 router.put(
   '/submissions/:submissionId',
   verifyToken,
-  requirePermission('create_submission'),
-  uploadSubmissionPdf.single('resumePdf'), // optionnel: si tu veux remplacer le PDF
+  requirePermission('update_submission'),
+  uploadSubmissionPdf.single('resumePdf'), // si tu veux remplacer le PDF
   submissionController.updateSubmissionController
 );
 
@@ -28,7 +28,7 @@ router.put(
 router.delete(
   '/submissions/:submissionId',
   verifyToken,
-  requirePermission('create_submission'),
+  requirePermission('delete_submission'),
   submissionController.deleteSubmissionController
 );
 

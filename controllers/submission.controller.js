@@ -11,6 +11,13 @@ const {
 
 const { isSubmissionOpen } = require('../models/event.model');
 
+// Petit helper: suppression best-effort
+const safeUnlink = (filePath) => {
+  if (!filePath) return;
+  const abs = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
+  fs.unlink(abs, () => {});
+};
+
 // CREATE
 const createSubmissionController = (req, res) => {
   const { eventId } = req.params;
@@ -20,6 +27,7 @@ const createSubmissionController = (req, res) => {
     return res.status(400).json({ message: 'Champs requis: titre, resume, type' });
   }
 
+  // En CREATE: PDF obligatoire
   if (!req.file) {
     return res.status(400).json({ message: 'Fichier PDF requis (champ: resumePdf)' });
   }
@@ -49,12 +57,16 @@ const createSubmissionController = (req, res) => {
       type,
       fichier_pdf: req.file.path,
       evenement_id: Number(eventId),
-      auteur_id: req.user.id, // ✅ colonne DB
+      auteur_id: req.user.id,
     };
 
     createSubmission(data, (err2, submissionId) => {
       if (err2) {
         console.error('DB error createSubmission:', err2);
+
+        // Si DB échoue, on peut supprimer le fichier uploadé (best-effort)
+        safeUnlink(req.file?.path);
+
         return res.status(500).json({ message: 'Erreur serveur' });
       }
 
@@ -71,68 +83,73 @@ const updateSubmissionController = (req, res) => {
   const { submissionId } = req.params;
   const { titre, resume, type } = req.body;
 
-  // 1) récupérer la soumission pour vérifier propriétaire + eventId + ancien fichier
   getSubmissionById(Number(submissionId), (err, submission) => {
     if (err) {
       console.error('DB error getSubmissionById:', err);
       return res.status(500).json({ message: 'Erreur serveur' });
     }
     if (!submission) {
+      // si on a uploadé un fichier mais l'id n'existe pas -> nettoyer
+      safeUnlink(req.file?.path);
       return res.status(404).json({ message: 'Soumission introuvable' });
     }
 
-    // 2) autorisation: propriétaire OU admin (SUPER_ADMIN / ORGANISATEUR)
+    // Autorisation
     const isOwner = submission.auteur_id === req.user.id;
     const isAdmin = req.user.role === 'SUPER_ADMIN' || req.user.role === 'ORGANISATEUR';
     if (!isOwner && !isAdmin) {
+      safeUnlink(req.file?.path);
       return res.status(403).json({ message: 'Accès interdit (pas propriétaire)' });
     }
 
-    // 3) deadline (bloque update après date limite)
+    // Deadline
     isSubmissionOpen(Number(submission.evenement_id), (err2, check) => {
       if (err2) {
         console.error('DB error isSubmissionOpen:', err2);
+        safeUnlink(req.file?.path);
         return res.status(500).json({ message: 'Erreur serveur' });
       }
       if (!check.ok && check.reason === 'DEADLINE_PASSED') {
+        safeUnlink(req.file?.path);
         return res.status(403).json({
           message: 'Modifications interdites (date limite dépassée)',
           deadline: check.deadline,
         });
       }
 
-      // 4) construire data: on update seulement les champs envoyés
-      const newData = {
-        titre: titre ?? null,
-        resume: resume ?? null,
-        type: type ?? null,
-        fichier_pdf: null,
-      };
+      // Construire un update PARTIEL: on ne met pas null par défaut
+      const newData = {};
+      if (titre !== undefined) newData.titre = titre;
+      if (resume !== undefined) newData.resume = resume;
+      if (type !== undefined) newData.type = type;
 
-      // 5) remplacement PDF (optionnel)
+      // PDF optionnel: on ne modifie fichier_pdf que si un fichier est envoyé
       let oldFileToDelete = null;
       if (req.file) {
         newData.fichier_pdf = req.file.path;
         oldFileToDelete = submission.fichier_pdf;
       }
 
+      if (Object.keys(newData).length === 0) {
+        return res.status(400).json({ message: 'Aucune donnée à mettre à jour' });
+      }
+
       updateSubmission(Number(submissionId), newData, (err3, affectedRows) => {
         if (err3) {
           console.error('DB error updateSubmission:', err3);
+
+          // si on a uploadé un nouveau fichier et update DB échoue -> nettoyer ce nouveau fichier
+          safeUnlink(req.file?.path);
+
           return res.status(500).json({ message: 'Erreur serveur' });
         }
         if (!affectedRows) {
+          safeUnlink(req.file?.path);
           return res.status(404).json({ message: 'Soumission introuvable' });
         }
 
-        // 6) supprimer l’ancien PDF si un nouveau a été uploadé (best-effort)
-        if (oldFileToDelete) {
-          const abs = path.isAbsolute(oldFileToDelete)
-            ? oldFileToDelete
-            : path.join(process.cwd(), oldFileToDelete);
-
-          fs.unlink(abs, () => {});
-        }
+        // Supprimer l’ancien PDF uniquement si remplacement réussi
+        if (oldFileToDelete) safeUnlink(oldFileToDelete);
 
         return res.status(200).json({ message: 'Soumission mise à jour' });
       });
@@ -181,13 +198,7 @@ const deleteSubmissionController = (req, res) => {
         }
 
         // best-effort: supprimer le pdf du disque
-        if (submission.fichier_pdf) {
-          const abs = path.isAbsolute(submission.fichier_pdf)
-            ? submission.fichier_pdf
-            : path.join(process.cwd(), submission.fichier_pdf);
-
-          fs.unlink(abs, () => {});
-        }
+        safeUnlink(submission.fichier_pdf);
 
         return res.status(200).json({ message: 'Soumission supprimée' });
       });
