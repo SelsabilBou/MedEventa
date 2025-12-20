@@ -40,12 +40,11 @@ router.put(
   submissionController.updateStatusController
 );
 
-// ===== Phase 4: withdraw =====
 // POST /api/events/submissions/:submissionId/withdraw
 router.post(
   '/submissions/:submissionId/withdraw',
   verifyToken,
-  requirePermission('update_submission'), // ولا دير permission جديدة withdraw_submission
+  requirePermission('withdraw_submission'),
   submissionController.withdrawController
 );
 

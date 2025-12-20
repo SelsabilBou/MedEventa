@@ -109,11 +109,12 @@ const deleteSubmission = (submissionId, callback) => {
 };
 
 // Phase 3: mise à jour du statut + decided_by
+// ✅ on bloque si déjà retirée (etat <> 'retire')
 const setSubmissionStatus = (submissionId, status, decidedBy, callback) => {
   const sql = `
     UPDATE communication
     SET etat = ?, decided_by = ?
-    WHERE id = ?
+    WHERE id = ? AND etat <> 'retire'
   `;
 
   db.query(sql, [status, decidedBy, submissionId], (err, result) => {
@@ -123,11 +124,12 @@ const setSubmissionStatus = (submissionId, status, decidedBy, callback) => {
 };
 
 // ===== Phase 4: withdraw =====
+// ✅ on retire seulement si pas encore retirée
 const withdrawSubmission = (submissionId, userId, callback) => {
   const sql = `
     UPDATE communication
     SET etat = 'retire', decided_by = ?
-    WHERE id = ?
+    WHERE id = ? AND etat <> 'retire'
   `;
   db.query(sql, [userId, submissionId], (err, result) => {
     if (err) return callback(err);

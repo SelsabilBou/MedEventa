@@ -9,15 +9,14 @@ const {
   deleteSubmission,
   setSubmissionStatus,
 
-  // phase 4
   logSubmissionHistory,
   withdrawSubmission,
 } = require('../models/submission.model');
 
 const { isSubmissionOpen } = require('../models/event.model');
 
-// Statuts autorisés (selon TON ENUM DB)
-const ALLOWED_STATUS = ['en_attente', 'acceptee', 'refusee', 'en_revision', 'retire'];
+// Statuts autorisés (decision comité/organisateur)
+const ALLOWED_STATUS = ['en_attente', 'acceptee', 'refusee', 'en_revision'];
 
 // Petit helper: suppression best-effort
 const safeUnlink = (filePath) => {
@@ -32,6 +31,7 @@ const createSubmissionController = (req, res) => {
   const { titre, resume, type } = req.body;
 
   if (!titre || !resume || !type) {
+    safeUnlink(req.file?.path);
     return res.status(400).json({ message: 'Champs requis: titre, resume, type' });
   }
 
@@ -42,10 +42,13 @@ const createSubmissionController = (req, res) => {
   isSubmissionOpen(Number(eventId), (err, check) => {
     if (err) {
       console.error('DB error isSubmissionOpen:', err);
+      safeUnlink(req.file?.path);
       return res.status(500).json({ message: 'Erreur serveur' });
     }
 
     if (!check.ok) {
+      safeUnlink(req.file?.path);
+
       if (check.reason === 'EVENT_NOT_FOUND') {
         return res.status(404).json({ message: 'Événement introuvable' });
       }
@@ -74,6 +77,7 @@ const createSubmissionController = (req, res) => {
         return res.status(500).json({ message: 'Erreur serveur' });
       }
 
+      // CREATE est déjà loggé dans le model
       return res.status(201).json({
         message: 'Soumission créée avec succès',
         submissionId,
@@ -82,7 +86,7 @@ const createSubmissionController = (req, res) => {
   });
 };
 
-// UPDATE (PUT /submissions/:submissionId)
+// UPDATE
 const updateSubmissionController = (req, res) => {
   const { submissionId } = req.params;
   const { titre, resume, type } = req.body;
@@ -90,11 +94,17 @@ const updateSubmissionController = (req, res) => {
   getSubmissionById(Number(submissionId), (err, submission) => {
     if (err) {
       console.error('DB error getSubmissionById:', err);
+      safeUnlink(req.file?.path);
       return res.status(500).json({ message: 'Erreur serveur' });
     }
     if (!submission) {
       safeUnlink(req.file?.path);
       return res.status(404).json({ message: 'Soumission introuvable' });
+    }
+
+    if (submission.etat === 'retire') {
+      safeUnlink(req.file?.path);
+      return res.status(400).json({ message: 'Action interdite: soumission retirée' });
     }
 
     const isOwner = submission.auteur_id === req.user.id;
@@ -130,6 +140,7 @@ const updateSubmissionController = (req, res) => {
       }
 
       if (Object.keys(newData).length === 0) {
+        safeUnlink(req.file?.path);
         return res.status(400).json({ message: 'Aucune donnée à mettre à jour' });
       }
 
@@ -146,7 +157,6 @@ const updateSubmissionController = (req, res) => {
 
         if (oldFileToDelete) safeUnlink(oldFileToDelete);
 
-        // Phase 4: log UPDATE (best-effort)
         const oldValue = {
           titre: submission.titre,
           resume: submission.resume,
@@ -164,7 +174,7 @@ const updateSubmissionController = (req, res) => {
   });
 };
 
-// DELETE (DELETE /submissions/:submissionId)
+// DELETE
 const deleteSubmissionController = (req, res) => {
   const { submissionId } = req.params;
 
@@ -175,6 +185,10 @@ const deleteSubmissionController = (req, res) => {
     }
     if (!submission) {
       return res.status(404).json({ message: 'Soumission introuvable' });
+    }
+
+    if (submission.etat === 'retire') {
+      return res.status(400).json({ message: 'Action interdite: soumission retirée' });
     }
 
     const isOwner = submission.auteur_id === req.user.id;
@@ -206,13 +220,16 @@ const deleteSubmissionController = (req, res) => {
 
         safeUnlink(submission.fichier_pdf);
 
-        return res.status(200).json({ message: 'Soumission supprimée' });
+        logSubmissionHistory(Number(submissionId), 'DELETE', { id: submission.id }, null, req.user.id, (e) => {
+          if (e) console.error('History log error (DELETE):', e);
+          return res.status(200).json({ message: 'Soumission supprimée' });
+        });
       });
     });
   });
 };
 
-// Phase 3: PUT /submissions/:submissionId/status
+// STATUS
 const updateStatusController = (req, res) => {
   const { submissionId } = req.params;
   const { status } = req.body;
@@ -233,6 +250,10 @@ const updateStatusController = (req, res) => {
       return res.status(404).json({ message: 'Soumission introuvable' });
     }
 
+    if (submission.etat === 'retire') {
+      return res.status(400).json({ message: 'Action interdite: soumission retirée' });
+    }
+
     const oldValue = { etat: submission.etat };
     const newValue = { etat: status };
 
@@ -242,10 +263,9 @@ const updateStatusController = (req, res) => {
         return res.status(500).json({ message: 'Erreur serveur' });
       }
       if (!affectedRows) {
-        return res.status(404).json({ message: 'Soumission introuvable' });
+        return res.status(400).json({ message: 'Action impossible (soumission retirée ou introuvable)' });
       }
 
-      // Phase 4: log STATUS_CHANGE (best-effort)
       logSubmissionHistory(Number(submissionId), 'STATUS_CHANGE', oldValue, newValue, req.user.id, (e) => {
         if (e) console.error('History log error (STATUS_CHANGE):', e);
 
@@ -265,7 +285,7 @@ const updateStatusController = (req, res) => {
   });
 };
 
-// ===== Phase 4: withdraw قبل deadline =====
+// WITHDRAW
 const withdrawController = (req, res) => {
   const { submissionId } = req.params;
 
@@ -278,7 +298,6 @@ const withdrawController = (req, res) => {
       return res.status(404).json({ message: 'Soumission introuvable' });
     }
 
-    // owner فقط
     const isOwner = submission.auteur_id === req.user.id;
     if (!isOwner) {
       return res.status(403).json({ message: 'Accès interdit (pas propriétaire)' });
@@ -296,17 +315,13 @@ const withdrawController = (req, res) => {
         });
       }
 
-      if (submission.etat === 'retire') {
-        return res.status(400).json({ message: 'Soumission déjà retirée' });
-      }
-
       withdrawSubmission(Number(submissionId), req.user.id, (err3, affectedRows) => {
         if (err3) {
           console.error('DB error withdrawSubmission:', err3);
           return res.status(500).json({ message: 'Erreur serveur' });
         }
         if (!affectedRows) {
-          return res.status(404).json({ message: 'Soumission introuvable' });
+          return res.status(400).json({ message: 'Soumission déjà retirée ou introuvable' });
         }
 
         logSubmissionHistory(
