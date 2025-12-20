@@ -38,7 +38,6 @@ const getSubmissionById = (submissionId, callback) => {
 };
 
 const updateSubmission = (submissionId, data, callback) => {
-  // update partiel: COALESCE(?, col) => si null, garde ancienne valeur
   const sql = `
     UPDATE communication
     SET
@@ -71,9 +70,24 @@ const deleteSubmission = (submissionId, callback) => {
   });
 };
 
+// Phase 3: mise à jour du statut + decided_by (+ updated_at via MySQL)
+const setSubmissionStatus = (submissionId, status, decidedBy, callback) => {
+  const sql = `
+    UPDATE communication
+    SET etat = ?, decided_by = ?
+    WHERE id = ?
+  `;
+
+  db.query(sql, [status, decidedBy, submissionId], (err, result) => {
+    if (err) return callback(err);
+    return callback(null, result.affectedRows);
+  });
+};
+
 module.exports = {
   createSubmission,
   getSubmissionById,
   updateSubmission,
   deleteSubmission,
+  setSubmissionStatus,
 };

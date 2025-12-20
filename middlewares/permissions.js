@@ -1,28 +1,34 @@
 // middlewares/permissions.js
 const permissions = {
-  SUPER_ADMIN: ['create_event', 'delete_user', 'view_all', 'manage_evaluations'],
-  ORGANISATEUR: ['create_event', 'edit_event', 'manage_inscriptions', 'manage_evaluations'],
- COMMUNICANT: [
-  'submit_communication',
-  'create_submission',
-  'update_submission',
-  'delete_submission',
-  'view_own_communications',
-  'register_event'
-],
-
+  SUPER_ADMIN: [
+    'create_event', 'delete_user', 'view_all', 'manage_evaluations',
+    'decide_submission'
+  ],
+  ORGANISATEUR: [
+    'create_event', 'edit_event', 'manage_inscriptions', 'manage_evaluations',
+    'decide_submission'
+  ],
+  COMMUNICANT: [
+    'submit_communication',
+    'create_submission',
+    'update_submission',
+    'delete_submission',
+    'view_own_communications',
+    'register_event'
+  ],
   PARTICIPANT: ['register_event', 'view_public_info'],
-  MEMBRE_COMITE: ['evaluate_communications', 'view_comite'],
-  INVITE: ['view_event_details','register_event'],
+  MEMBRE_COMITE: [
+    'evaluate_communications', 'view_comite',
+    'decide_submission'
+  ],
+  INVITE: ['view_event_details', 'register_event'],
   RESP_WORKSHOP: ['manage_workshop'],
 };
-
 
 const hasPermission = (role, permission) => {
   return permissions[role] && permissions[role].includes(permission);
 };
 
-// middleware générique
 const requirePermission = (permission) => (req, res, next) => {
   if (!req.user || !hasPermission(req.user.role, permission)) {
     return res.status(403).json({ message: 'Permission refusée' });

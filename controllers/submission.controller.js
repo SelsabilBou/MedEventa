@@ -7,9 +7,13 @@ const {
   getSubmissionById,
   updateSubmission,
   deleteSubmission,
+  setSubmissionStatus,
 } = require('../models/submission.model');
 
 const { isSubmissionOpen } = require('../models/event.model');
+
+// Statuts autorisés (selon TON ENUM DB)
+const ALLOWED_STATUS = ['en_attente', 'acceptee', 'refusee', 'en_revision'];
 
 // Petit helper: suppression best-effort
 const safeUnlink = (filePath) => {
@@ -27,7 +31,6 @@ const createSubmissionController = (req, res) => {
     return res.status(400).json({ message: 'Champs requis: titre, resume, type' });
   }
 
-  // En CREATE: PDF obligatoire
   if (!req.file) {
     return res.status(400).json({ message: 'Fichier PDF requis (champ: resumePdf)' });
   }
@@ -63,10 +66,7 @@ const createSubmissionController = (req, res) => {
     createSubmission(data, (err2, submissionId) => {
       if (err2) {
         console.error('DB error createSubmission:', err2);
-
-        // Si DB échoue, on peut supprimer le fichier uploadé (best-effort)
         safeUnlink(req.file?.path);
-
         return res.status(500).json({ message: 'Erreur serveur' });
       }
 
@@ -89,12 +89,10 @@ const updateSubmissionController = (req, res) => {
       return res.status(500).json({ message: 'Erreur serveur' });
     }
     if (!submission) {
-      // si on a uploadé un fichier mais l'id n'existe pas -> nettoyer
       safeUnlink(req.file?.path);
       return res.status(404).json({ message: 'Soumission introuvable' });
     }
 
-    // Autorisation
     const isOwner = submission.auteur_id === req.user.id;
     const isAdmin = req.user.role === 'SUPER_ADMIN' || req.user.role === 'ORGANISATEUR';
     if (!isOwner && !isAdmin) {
@@ -102,7 +100,6 @@ const updateSubmissionController = (req, res) => {
       return res.status(403).json({ message: 'Accès interdit (pas propriétaire)' });
     }
 
-    // Deadline
     isSubmissionOpen(Number(submission.evenement_id), (err2, check) => {
       if (err2) {
         console.error('DB error isSubmissionOpen:', err2);
@@ -117,13 +114,11 @@ const updateSubmissionController = (req, res) => {
         });
       }
 
-      // Construire un update PARTIEL: on ne met pas null par défaut
       const newData = {};
       if (titre !== undefined) newData.titre = titre;
       if (resume !== undefined) newData.resume = resume;
       if (type !== undefined) newData.type = type;
 
-      // PDF optionnel: on ne modifie fichier_pdf que si un fichier est envoyé
       let oldFileToDelete = null;
       if (req.file) {
         newData.fichier_pdf = req.file.path;
@@ -137,10 +132,7 @@ const updateSubmissionController = (req, res) => {
       updateSubmission(Number(submissionId), newData, (err3, affectedRows) => {
         if (err3) {
           console.error('DB error updateSubmission:', err3);
-
-          // si on a uploadé un nouveau fichier et update DB échoue -> nettoyer ce nouveau fichier
           safeUnlink(req.file?.path);
-
           return res.status(500).json({ message: 'Erreur serveur' });
         }
         if (!affectedRows) {
@@ -148,7 +140,6 @@ const updateSubmissionController = (req, res) => {
           return res.status(404).json({ message: 'Soumission introuvable' });
         }
 
-        // Supprimer l’ancien PDF uniquement si remplacement réussi
         if (oldFileToDelete) safeUnlink(oldFileToDelete);
 
         return res.status(200).json({ message: 'Soumission mise à jour' });
@@ -197,10 +188,54 @@ const deleteSubmissionController = (req, res) => {
           return res.status(404).json({ message: 'Soumission introuvable' });
         }
 
-        // best-effort: supprimer le pdf du disque
         safeUnlink(submission.fichier_pdf);
 
         return res.status(200).json({ message: 'Soumission supprimée' });
+      });
+    });
+  });
+};
+
+// Phase 3: PUT /submissions/:submissionId/status
+const updateStatusController = (req, res) => {
+  const { submissionId } = req.params;
+  const { status } = req.body;
+
+  if (!status || !ALLOWED_STATUS.includes(status)) {
+    return res.status(400).json({
+      message: 'Statut invalide',
+      allowed: ALLOWED_STATUS,
+    });
+  }
+
+  getSubmissionById(Number(submissionId), (err, submission) => {
+    if (err) {
+      console.error('DB error getSubmissionById:', err);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+    if (!submission) {
+      return res.status(404).json({ message: 'Soumission introuvable' });
+    }
+
+    setSubmissionStatus(Number(submissionId), status, req.user.id, (err2, affectedRows) => {
+      if (err2) {
+        console.error('DB error setSubmissionStatus:', err2);
+        return res.status(500).json({ message: 'Erreur serveur' });
+      }
+      if (!affectedRows) {
+        return res.status(404).json({ message: 'Soumission introuvable' });
+      }
+
+      getSubmissionById(Number(submissionId), (err3, updated) => {
+        if (err3) {
+          console.error('DB error getSubmissionById (after update):', err3);
+          return res.status(500).json({ message: 'Erreur serveur' });
+        }
+
+        return res.status(200).json({
+          message: 'Statut mis à jour',
+          submission: updated,
+        });
       });
     });
   });
@@ -210,4 +245,5 @@ module.exports = {
   createSubmissionController,
   updateSubmissionController,
   deleteSubmissionController,
+  updateStatusController,
 };

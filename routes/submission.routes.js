@@ -31,5 +31,11 @@ router.delete(
   requirePermission('delete_submission'),
   submissionController.deleteSubmissionController
 );
-
+// PUT /api/events/submissions/:submissionId/status
+router.put(
+  '/submissions/:submissionId/status',
+  verifyToken,
+  requirePermission('decide_submission'),
+  submissionController.updateStatusController
+);
 module.exports = router;
