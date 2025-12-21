@@ -2,11 +2,15 @@
 const { body, validationResult } = require('express-validator');
 
 const createSessionValidation = [
-  body('titre').notEmpty().withMessage('Le titre est obligatoire'),
+  body('titre')
+    .notEmpty()
+    .withMessage('Le titre est obligatoire'),
   body('horaire')
     .isISO8601()
     .withMessage('L\'horaire doit être une date valide (ISO8601)'),
-  body('salle').notEmpty().withMessage('La salle est obligatoire'),
+  body('salle')
+    .notEmpty()
+    .withMessage('La salle est obligatoire'),
   body('president_id')
     .isInt()
     .withMessage('president_id doit être un entier'),

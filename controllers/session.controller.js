@@ -16,11 +16,11 @@ const createSessionController = (req, res) => {
   }
 
   const { eventId } = req.params;
-  const { titre, horaire, salle, id_president } = req.body;
+  const { titre, horaire, salle, president_id } = req.body;
   const userId = req.user.id;
 
   const sqlCheck = `
-    SELECT id, id_president
+    SELECT id, id_organisateur
     FROM evenement
     WHERE id = ?
   `;
@@ -32,15 +32,16 @@ const createSessionController = (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Événement non trouvé' });
     }
-    if (rows[0].id_president !== userId) {
+    if (rows[0].id_organisateur !== userId) {
       return res.status(403).json({
         message: "Vous n'êtes pas l'organisateur de cet événement",
       });
     }
 
-    const data = { titre, horaire, salle, id_president };
+    const data = { titre, horaire, salle, president_id };
     createSession(eventId, data, (err2, sessionId) => {
       if (err2) {
+        console.error('Erreur createSession:', err2);
         return res
           .status(500)
           .json({ message: 'Erreur lors de la création de la session' });
@@ -68,7 +69,7 @@ const assignCommunicationController = (req, res) => {
   }
 
   const sqlCheck = `
-    SELECT s.id, s.evenement_id, e.id_president
+    SELECT s.id, s.evenement_id, e.id_organisateur
     FROM session s
     JOIN evenement e ON s.evenement_id = e.id
     WHERE s.id = ?
@@ -82,7 +83,7 @@ const assignCommunicationController = (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Session non trouvée' });
     }
-    if (rows[0].organisateur_id !== userId) {
+    if (rows[0].id_organisateur !== userId) {
       return res.status(403).json({
         message: "Vous n'êtes pas l'organisateur de cet événement",
       });
