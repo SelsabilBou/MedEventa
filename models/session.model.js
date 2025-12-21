@@ -35,7 +35,7 @@ const assignCommunication = (sessionId, communicationId, callback) => {
     UPDATE communication
     SET session_id = ?
     WHERE id = ?
-      AND decision = 'accepter'
+      AND etat = 'accepter'
       AND (session_id IS NULL OR session_id = 0)
   `;
 
