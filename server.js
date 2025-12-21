@@ -10,7 +10,6 @@ const { verifyToken } = require('./middlewares/auth.middleware');
 const submissionRoutes = require('./routes/submission.routes');
 const evaluationRoutes = require('./routes/evaluation.routes');
 
-
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -26,7 +25,7 @@ app.use(express.json());
 // Routes principales
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
-app.use('/api', sessionRoutes);              // /api/events/:eventId/sessions etc.
+app.use('/api', sessionRoutes);             // => POST /api/events/:eventId/sessions/create
 app.use('/api/inscriptions', inscriptionRoutes);
 app.use('/api/events', submissionRoutes);
 app.use('/api/evaluations', evaluationRoutes);
