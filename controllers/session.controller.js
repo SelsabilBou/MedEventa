@@ -6,12 +6,151 @@ const {
   assignCommunication,
   getProgram,
   getDetailedProgram,
-  updateSession,          // ⬅️ à importer depuis le model
+  updateSession,
 } = require('../models/session.model');
 
-// ... tout ton code actuel inchangé ...
+//
+// PHASE 1 : Création de session
+// POST /events/:eventId/sessions/create
+//
+const createSessionController = (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
 
+  const { titre, horaire, salle, president_id } = req.body;
+  const eventId = req.params.eventId;
+  const userId = req.user.id;
+
+  // Vérifier que l'utilisateur est bien l'organisateur de l'événement
+  const sqlEvent = 'SELECT id_organisateur FROM evenement WHERE id = ?';
+
+  db.query(sqlEvent, [eventId], (err, rows) => {
+    if (err) {
+      console.error('Erreur vérif événement:', err);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Événement non trouvé' });
+    }
+    if (rows[0].id_organisateur !== userId) {
+      return res.status(403).json({
+        message: "Vous n'êtes pas l'organisateur de cet événement",
+      });
+    }
+
+    const data = { titre, horaire, salle, president_id };
+
+    createSession(eventId, data, (err2, sessionId) => {
+      if (err2) {
+        console.error('Erreur createSession:', err2);
+        return res
+          .status(500)
+          .json({ message: 'Erreur lors de la création de la session' });
+      }
+
+      return res.status(201).json({
+        message: 'Session créée avec succès',
+        eventId: Number(eventId),
+        sessionId,
+      });
+    });
+  });
+};
+
+//
+// PHASE 2 : Assignation de communication à une session
+// POST /sessions/:sessionId/assign-communication
+//
+const assignCommunicationController = (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { sessionId } = req.params;
+  const { communication_id } = req.body;
+  const userId = req.user.id;
+
+  // Vérifier que la session appartient à un événement organisé par cet utilisateur
+  const sqlCheck = `
+    SELECT s.id, s.evenement_id, e.id_organisateur
+    FROM session s
+    JOIN evenement e ON s.evenement_id = e.id
+    WHERE s.id = ?
+  `;
+
+  db.query(sqlCheck, [sessionId], (err, rows) => {
+    if (err) {
+      console.error('Erreur vérif session:', err);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Session non trouvée' });
+    }
+    if (rows[0].id_organisateur !== userId) {
+      return res.status(403).json({
+        message: "Vous n'êtes pas l'organisateur de cet événement",
+      });
+    }
+
+    assignCommunication(sessionId, communication_id, (err2) => {
+      if (err2) {
+        console.error('Erreur assignCommunication:', err2);
+        return res
+          .status(500)
+          .json({ message: "Erreur lors de l'assignation de la communication" });
+      }
+
+      return res.status(200).json({
+        message: 'Communication assignée avec succès à la session',
+        sessionId: Number(sessionId),
+        communication_id: Number(communication_id),
+      });
+    });
+  });
+};
+
+//
+// PHASE 3 : Programme global d’un événement
+// GET /events/:eventId/program
+//
+const getProgramController = (req, res) => {
+  const { eventId } = req.params;
+
+  getProgram(eventId, (err, program) => {
+    if (err) {
+      console.error('Erreur getProgram:', err);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+
+    return res.json(program);
+  });
+};
+
+//
+// PHASE 3 : Programme détaillé par jour
+// GET /events/:eventId/program/detailed?date=YYYY-MM-DD
+//
+const getDetailedProgramController = (req, res) => {
+  const { eventId } = req.params;
+  const { date } = req.query;
+
+  getDetailedProgram(eventId, date, (err, program) => {
+    if (err) {
+      console.error('Erreur getDetailedProgram:', err);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+
+    return res.json(program);
+  });
+};
+
+//
+// PHASE 4 : Mise à jour d’une session
 // PUT /sessions/:sessionId/update
+//
 const updateSessionController = (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -73,5 +212,5 @@ module.exports = {
   assignCommunicationController,
   getProgramController,
   getDetailedProgramController,
-  updateSessionController,      // ⬅️ exporter
+  updateSessionController,
 };
