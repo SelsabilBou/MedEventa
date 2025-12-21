@@ -285,6 +285,22 @@ const updateSessionController = (req, res) => {
     });
   });
 };
+const updateSession = (sessionId, data, callback) => {
+  const { titre, horaire, salle, president_id } = data;
+  const sql = `
+    UPDATE session
+    SET titre = ?, horaire = ?, salle = ?, president_id = ?
+    WHERE id = ?
+  `;
+  db.query(
+    sql,
+    [titre, horaire, salle, president_id, sessionId],
+    (err, result) => {
+      if (err) return callback(err, 0);
+      callback(null, result.affectedRows);
+    }
+  );
+};
 
 module.exports = {
   createSessionController,
@@ -292,4 +308,5 @@ module.exports = {
   getProgramController,
   getDetailedProgramController,
   updateSessionController,
+  updateSession,
 };
