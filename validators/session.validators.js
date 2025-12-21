@@ -1,26 +1,17 @@
-// validators/session.validators.js
-const { body, validationResult } = require('express-validator');
+const { body } = require('express-validator');
 
 const createSessionValidation = [
   body('titre')
-    .notEmpty()
-    .withMessage('Le titre est obligatoire'),
+    .notEmpty().withMessage('Titre obligatoire')
+    .isLength({ max: 255 }).withMessage('Titre trop long (max 255 caractères)'),
   body('horaire')
-    .isISO8601()
-    .withMessage('L\'horaire doit être une date valide (ISO8601)'),
+    .notEmpty().withMessage('Horaire obligatoire')
+    .isISO8601().withMessage('Horaire invalide (utilisez YYYY-MM-DDTHH:MM:SS)'),
   body('salle')
-    .notEmpty()
-    .withMessage('La salle est obligatoire'),
+    .notEmpty().withMessage('Salle obligatoire')
+    .isLength({ max: 100 }).withMessage('Salle trop long (max 100 caractères)'),
   body('president_id')
-    .isInt()
-    .withMessage('president_id doit être un entier'),
-  (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-    next();
-  },
+    .isInt({ min: 1 }).withMessage('ID président doit être un entier positif')
 ];
 
 module.exports = {
