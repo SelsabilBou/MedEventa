@@ -12,7 +12,11 @@ const {
   updateWorkshopValidator,
 } = require('../validators/workshop.validators');
 
-// ===== Phase 1: CRUD workshops =====
+const multer = require('multer');
+const { uploadWorkshopPdf } = require('../middlewares/uploadWorkshopPdf');
+const workshopSupportController = require('../controllers/workshopSupport.controller');
+
+
 
 // GET /api/events/:eventId/workshops
 router.get('/:eventId/workshops', workshopController.listWorkshops);
@@ -71,5 +75,46 @@ router.get(
   requirePermission('manage_workshop_inscriptions'),
   workshopRegistrationController.listRegistrationsController
 );
+// ===== Phase 3: supports workshops =====
+
+// GET /api/events/workshops/:workshopId/supports
+router.get(
+  '/workshops/:workshopId/supports',
+  verifyToken,
+  requirePermission('view_workshops'),
+  workshopSupportController.listSupportsController
+);
+
+// POST /api/events/workshops/:workshopId/supports
+router.post(
+  '/workshops/:workshopId/supports',
+  verifyToken,
+  requirePermission('manage_workshop_supports'),
+  uploadWorkshopPdf.single('pdf'), // pour type=pdf (et n'impacte pas JSON)
+  workshopSupportController.addSupportController
+);
+
+// DELETE /api/events/workshops/supports/:supportId
+router.delete(
+  '/workshops/supports/:supportId',
+  verifyToken,
+  requirePermission('manage_workshop_supports'),
+  workshopSupportController.deleteSupportController
+);
+
+// Handler erreurs upload (multer)
+router.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ message: 'Fichier trop grand (max 10MB)' });
+    }
+    return res.status(400).json({ message: 'Erreur upload', detail: err.message });
+  }
+  if (err) {
+    return res.status(400).json({ message: err.message || 'Erreur upload' });
+  }
+  next();
+});
+
 
 module.exports = router;
