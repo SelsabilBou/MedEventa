@@ -14,6 +14,9 @@ const {
 // Phase 4: pour vérifier qu'on ne baisse pas nb_places sous le nombre d'inscrits
 const { countRegistrations } = require('../models/workshopRegistration.model');
 
+// ✅ PHASE 5: check date workshop dans interval event
+const { checkWorkshopDateInEvent } = require('../models/event.model');
+
 // Convertit ISO8601 -> 'YYYY-MM-DD HH:MM:SS' (MySQL DATETIME)
 const isoToMySQLDateTime = (isoString) => {
   const d = new Date(isoString);
@@ -80,12 +83,20 @@ const createWorkshopController = (req, res) => {
     return res.status(400).json({ message: 'Date invalide' });
   }
 
-  eventExists(eventId, (err, exists) => {
-    if (err) {
-      return res.status(500).json({ message: 'Erreur serveur', error: err.message });
+  // ✅ Phase 5: check interval event (remplace eventExists)
+  checkWorkshopDateInEvent(eventId, mysqlDate, (eCheck, chk) => {
+    if (eCheck) {
+      return res.status(500).json({ message: 'Erreur serveur', error: eCheck.message });
     }
-    if (!exists) {
+    if (!chk.found) {
       return res.status(404).json({ message: 'Événement introuvable' });
+    }
+    if (!chk.ok) {
+      return res.status(400).json({
+        message: "Date workshop invalide: elle doit être comprise dans l'intervalle de l'événement",
+        date_debut: chk.date_debut,
+        date_fin: chk.date_fin,
+      });
     }
 
     userExists(responsable_id, (err2, userOk) => {
@@ -138,9 +149,12 @@ const updateWorkshopController = (req, res) => {
       return res.status(403).json({ message: 'Accès refusé (pas responsable du workshop)' });
     }
 
-    // Phase 4: un animateur ne change pas responsable_id (il reste lui-même)
-    if (req.user.role === 'RESP_WORKSHOP' && responsable_id !== undefined &&
-        Number(responsable_id) !== Number(req.user.id)) {
+    // Phase 4: un animateur ne change pas responsable_id
+    if (
+      req.user.role === 'RESP_WORKSHOP' &&
+      responsable_id !== undefined &&
+      Number(responsable_id) !== Number(req.user.id)
+    ) {
       return res.status(403).json({ message: 'Accès refusé: changement de responsable interdit' });
     }
 
@@ -159,60 +173,72 @@ const updateWorkshopController = (req, res) => {
       merged.date = mysqlDate;
     }
 
-    // Phase 4: si on modifie nb_places, refuser si nb_places < inscrits
-    if (nb_places !== undefined && merged.nb_places !== null) {
-      countRegistrations(workshopId, (eCount, total) => {
-        if (eCount) {
-          return res.status(500).json({ message: 'Erreur serveur', error: eCount.message });
-        }
-        if (Number(merged.nb_places) < Number(total)) {
-          return res.status(400).json({
-            message: 'nb_places trop petit (déjà des inscrits)',
-            inscrits: total,
-            nb_places: merged.nb_places,
-          });
-        }
+    // ✅ Phase 5: vérifier que merged.date est dans interval event
+    checkWorkshopDateInEvent(workshop.evenement_id, merged.date, (eCheck, chk) => {
+      if (eCheck) return res.status(500).json({ message: 'Erreur serveur', error: eCheck.message });
+      if (!chk.found) return res.status(404).json({ message: 'Événement introuvable' });
+      if (!chk.ok) {
+        return res.status(400).json({
+          message: "Date workshop invalide: elle doit être comprise dans l'intervalle de l'événement",
+          date_debut: chk.date_debut,
+          date_fin: chk.date_fin,
+        });
+      }
 
-        // continue flow normal
-        userExists(merged.responsable_id, (err2, userOk) => {
-          if (err2) {
-            return res.status(500).json({ message: 'Erreur serveur', error: err2.message });
+      // Phase 4: si on modifie nb_places, refuser si nb_places < inscrits
+      if (nb_places !== undefined && merged.nb_places !== null) {
+        countRegistrations(workshopId, (eCount, total) => {
+          if (eCount) {
+            return res.status(500).json({ message: 'Erreur serveur', error: eCount.message });
           }
-          if (!userOk) {
-            return res.status(404).json({ message: 'Responsable introuvable' });
+          if (Number(merged.nb_places) < Number(total)) {
+            return res.status(400).json({
+              message: 'nb_places trop petit (déjà des inscrits)',
+              inscrits: total,
+              nb_places: merged.nb_places,
+            });
           }
 
-          updateWorkshop(workshopId, merged, (err3, affectedRows) => {
-            if (err3) {
-              return res.status(500).json({ message: 'Erreur serveur', error: err3.message });
+          userExists(merged.responsable_id, (err2, userOk) => {
+            if (err2) {
+              return res.status(500).json({ message: 'Erreur serveur', error: err2.message });
             }
-            if (!affectedRows) {
-              return res.status(400).json({ message: 'Aucune modification' });
+            if (!userOk) {
+              return res.status(404).json({ message: 'Responsable introuvable' });
             }
-            return res.status(200).json({ message: 'Workshop mis à jour' });
+
+            updateWorkshop(workshopId, merged, (err3, affectedRows) => {
+              if (err3) {
+                return res.status(500).json({ message: 'Erreur serveur', error: err3.message });
+              }
+              if (!affectedRows) {
+                return res.status(400).json({ message: 'Aucune modification' });
+              }
+              return res.status(200).json({ message: 'Workshop mis à jour' });
+            });
           });
         });
-      });
-      return; // IMPORTANT: éviter double réponse
-    }
-
-    // cas normal (nb_places pas touché)
-    userExists(merged.responsable_id, (err2, userOk) => {
-      if (err2) {
-        return res.status(500).json({ message: 'Erreur serveur', error: err2.message });
-      }
-      if (!userOk) {
-        return res.status(404).json({ message: 'Responsable introuvable' });
+        return; // IMPORTANT: éviter double réponse
       }
 
-      updateWorkshop(workshopId, merged, (err3, affectedRows) => {
-        if (err3) {
-          return res.status(500).json({ message: 'Erreur serveur', error: err3.message });
+      // cas normal (nb_places pas touché)
+      userExists(merged.responsable_id, (err2, userOk) => {
+        if (err2) {
+          return res.status(500).json({ message: 'Erreur serveur', error: err2.message });
         }
-        if (!affectedRows) {
-          return res.status(400).json({ message: 'Aucune modification' });
+        if (!userOk) {
+          return res.status(404).json({ message: 'Responsable introuvable' });
         }
-        return res.status(200).json({ message: 'Workshop mis à jour' });
+
+        updateWorkshop(workshopId, merged, (err3, affectedRows) => {
+          if (err3) {
+            return res.status(500).json({ message: 'Erreur serveur', error: err3.message });
+          }
+          if (!affectedRows) {
+            return res.status(400).json({ message: 'Aucune modification' });
+          }
+          return res.status(200).json({ message: 'Workshop mis à jour' });
+        });
       });
     });
   });

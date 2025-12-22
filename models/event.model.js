@@ -87,7 +87,7 @@ const getEventDetails = (eventId, callback) => {
           SELECT u.id, u.nom, u.prenom, u.email
           FROM membre_comite mc
           JOIN comite_scientifique cs ON mc.comite_id = cs.id
-          JOIN utilisateur u ON mc.utilisateur_id = u.id
+          JOIN utilisateur u ON u.id = mc.utilisateur_id
           WHERE cs.evenement_id = ?
         `;
 
@@ -122,7 +122,7 @@ const isSubmissionOpen = (eventId, callback) => {
     }
 
     const deadline = rows[0].date_limite_communication;
-    if (!deadline) return callback(null, { ok: true }); // NULL => ouvert (حسب اختيارنا)
+    if (!deadline) return callback(null, { ok: true }); // NULL => ouvert
 
     const now = new Date();
     if (now > new Date(deadline)) {
@@ -133,6 +133,28 @@ const isSubmissionOpen = (eventId, callback) => {
   });
 };
 
+// ✅ NEW (PHASE 5): vérifier que DATE(workshop.date) est dans [date_debut, date_fin]
+const checkWorkshopDateInEvent = (eventId, mysqlDateTime, callback) => {
+  const sql = `
+    SELECT date_debut, date_fin,
+           (DATE(?) BETWEEN date_debut AND date_fin) AS ok
+    FROM evenement
+    WHERE id = ?
+    LIMIT 1
+  `;
+  db.query(sql, [mysqlDateTime, eventId], (err, rows) => {
+    if (err) return callback(err);
+    if (!rows || rows.length === 0) return callback(null, { found: false });
+
+    return callback(null, {
+      found: true,
+      ok: rows[0].ok === 1,
+      date_debut: rows[0].date_debut,
+      date_fin: rows[0].date_fin,
+    });
+  });
+};
+
 module.exports = {
   createEvent,
   addComiteMember,
@@ -140,4 +162,5 @@ module.exports = {
   getEvents,
   getEventDetails,
   isSubmissionOpen,
+  checkWorkshopDateInEvent, // ✅ export
 };
