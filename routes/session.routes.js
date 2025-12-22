@@ -5,7 +5,7 @@ const router = express.Router();
 const { verifyToken } = require('../middlewares/auth.middlewares');
 const { requirePermission } = require('../middlewares/permissions');
 const { createSessionValidation } = require('../validators/session.validators');
-const { createSessionController } = require('../controllers/session.controller');
+const { createSessionController, assignCommunicationController } = require('../controllers/session.controller');
 
 // Phase 1 : création de session scientifique
 // POST /events/:eventId/sessions/create
@@ -15,6 +15,13 @@ router.post(
   requirePermission('manage_program'),
   createSessionValidation,
   createSessionController
+);
+// Phase 2 : attribution d'une communication acceptée à une session
+router.post(
+  '/sessions/:sessionId/assign-communication',
+  verifyToken,
+  requirePermission('manage_program'),
+  assignCommunicationController
 );
 
 module.exports = router;

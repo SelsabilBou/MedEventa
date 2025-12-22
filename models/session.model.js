@@ -22,7 +22,26 @@ const createSession = (eventId, data, callback) => {
     callback(null, result.insertId);
   });
 };
+// Attribuer une communication à une session (Phase 2)
+const assignCommunication = (sessionId, communicationId, callback) => {
+  const sql = `
+    UPDATE communication
+    SET session_id = ?
+    WHERE id = ?
+      AND etat = 'acceptee'
+      AND session_id IS NULL
+  `;
+
+  db.query(sql, [sessionId, communicationId], (err, result) => {
+    if (err) {
+      console.error('Erreur assignCommunication:', err);
+      return callback(err, null);
+    }
+    // 1 si une communication a été mise à jour, 0 sinon
+    callback(null, result.affectedRows);
+  });
+};
 
 module.exports = {
-  createSession,
+  createSession, assignCommunication,
 };
