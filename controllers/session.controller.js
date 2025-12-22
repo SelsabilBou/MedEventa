@@ -1,6 +1,6 @@
 const db = require('../db');
 const { validationResult } = require('express-validator');
-const { createSession } = require('../models/session.model');
+const { createSession , assignCommunication} = require('../models/session.model');
 
 const createSessionController = (req, res) => {
   const errors = validationResult(req);
