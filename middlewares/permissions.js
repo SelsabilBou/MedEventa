@@ -3,30 +3,67 @@ const permissions = {
   SUPER_ADMIN: [
     'create_event', 'delete_user', 'view_all', 'manage_evaluations',
     'decide_submission',
-    'view_submissions' // optionnel
+    'view_submissions', 
+    'create_workshop',
+    'edit_workshop',
+    'delete_workshop',
+    'view_workshops',
+    'manage_workshop_inscriptions',
+    'manage_workshop_supports'
   ],
+
   ORGANISATEUR: [
     'create_event', 'edit_event', 'manage_inscriptions', 'manage_evaluations',
     'decide_submission',
-    'view_submissions' // optionnel
+    'view_submissions', 
+    'create_workshop',
+    'edit_workshop',
+    'delete_workshop',
+    'view_workshops',
+    'manage_workshop_inscriptions',
+    'manage_workshop_supports'
   ],
+
   COMMUNICANT: [
     'submit_communication',
     'create_submission',
     'update_submission',
     'delete_submission',
-    'withdraw_submission', // ✅ ajouté
+    'withdraw_submission', //سحب الطلب
     'view_own_communications',
-    'register_event'
+    'register_event',
+    'view_workshops',
+    'register_workshop'
   ],
-  PARTICIPANT: ['register_event', 'view_public_info'],
+
+  PARTICIPANT: [
+    'register_event',
+    'view_public_info',
+    'view_workshops',
+    'register_workshop'
+  ],
+
   MEMBRE_COMITE: [
     'evaluate_communications', 'view_comite',
     'decide_submission',
-    'view_submissions' // optionnel
+    'view_submissions', 
+    'view_workshops'
   ],
-  INVITE: ['view_event_details', 'register_event'],
-  RESP_WORKSHOP: ['manage_workshop'],
+
+  INVITE: [
+    'view_event_details',
+    'register_event',
+
+    'view_workshops'
+  ],
+
+  RESP_WORKSHOP: [
+    
+    'view_workshops',
+    'edit_workshop',                 
+    'manage_workshop_inscriptions',  
+    'manage_workshop_supports'       
+  ],
 };
 
 const hasPermission = (role, permission) => {

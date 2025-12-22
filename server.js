@@ -13,6 +13,8 @@ const submissionRoutes = require('./routes/submission.routes');
 const app = express();
 const port = process.env.PORT || 3000;
 
+const workshopRoutes = require('./routes/workshop.routes');
+
 // Logger simple
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
@@ -48,6 +50,7 @@ app.use((req, res) => {
     message: `Route non trouvée: ${req.method} ${req.originalUrl}`,
   });
 });
+app.use('/api/events', workshopRoutes);
 
 // Lancement serveur
 app.listen(port, () => {
