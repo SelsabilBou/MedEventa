@@ -1,0 +1,66 @@
+// controllers/workshopRegistration.controller.js
+const {
+  registerToWorkshop,
+  unregisterFromWorkshop,
+  listWorkshopRegistrations,
+  getWorkshopCapacity,
+} = require('../models/workshopRegistration.model');
+
+const registerWorkshopController = (req, res) => {
+  const workshopId = parseInt(req.params.workshopId, 10);
+  const userId = req.user.id; // JWT
+
+  registerToWorkshop(workshopId, userId, (err, result) => {
+    if (err) return res.status(500).json({ message: 'Erreur serveur', error: err.message });
+
+    if (!result.ok) {
+      if (result.reason === 'WORKSHOP_NOT_FOUND') {
+        return res.status(404).json({ message: 'Workshop introuvable' });
+      }
+      if (result.reason === 'WORKSHOP_FULL') {
+        return res.status(400).json({ message: 'Workshop complet', capacity: result.capacity });
+      }
+      if (result.reason === 'ALREADY_REGISTERED') {
+        return res.status(409).json({ message: 'Déjà inscrit à ce workshop' });
+      }
+      return res.status(400).json({ message: 'Inscription refusée' });
+    }
+
+    return res.status(201).json({
+      message: 'Inscription workshop réussie',
+      registrationId: result.registrationId,
+    });
+  });
+};
+
+const unregisterWorkshopController = (req, res) => {
+  const workshopId = parseInt(req.params.workshopId, 10);
+  const userId = req.user.id;
+
+  // check workshop exist (message plus clair)
+  getWorkshopCapacity(workshopId, (err, workshop) => {
+    if (err) return res.status(500).json({ message: 'Erreur serveur', error: err.message });
+    if (!workshop) return res.status(404).json({ message: 'Workshop introuvable' });
+
+    unregisterFromWorkshop(workshopId, userId, (err2, affectedRows) => {
+      if (err2) return res.status(500).json({ message: 'Erreur serveur', error: err2.message });
+      if (!affectedRows) return res.status(404).json({ message: 'Vous n’êtes pas inscrit à ce workshop' });
+      return res.status(200).json({ message: 'Désinscription workshop réussie' });
+    });
+  });
+};
+
+const listRegistrationsController = (req, res) => {
+  const workshopId = parseInt(req.params.workshopId, 10);
+
+  listWorkshopRegistrations(workshopId, (err, rows) => {
+    if (err) return res.status(500).json({ message: 'Erreur serveur', error: err.message });
+    return res.status(200).json(rows);
+  });
+};
+
+module.exports = {
+  registerWorkshopController,
+  unregisterWorkshopController,
+  listRegistrationsController,
+};
