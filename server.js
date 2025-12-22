@@ -1,7 +1,6 @@
 // server.js
 require('dotenv').config();
 const express = require('express');
-
 const authRoutes = require('./routes/auth.routes');
 const eventRoutes = require('./routes/event.routes');
 const sessionRoutes = require('./routes/session.routes');
@@ -9,7 +8,7 @@ const inscriptionRoutes = require('./routes/inscription.routes');
 const { verifyToken } = require('./middlewares/auth.middlewares');
 const submissionRoutes = require('./routes/submission.routes');
 const evaluationRoutes = require('./routes/evaluation.routes');
-
+const questionRoutes = require('./routes/question.routes');
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -29,7 +28,7 @@ app.use('/api', sessionRoutes);             // => POST /api/events/:eventId/sess
 app.use('/api/inscriptions', inscriptionRoutes);
 app.use('/api/events', submissionRoutes);
 app.use('/api/evaluations', evaluationRoutes);
-
+app.use('/api', questionRoutes); // => POST /api/events/:eventId/questions/submit
 // Route profil protégée
 app.get('/api/profile', verifyToken, (req, res) => {
   res.json({
