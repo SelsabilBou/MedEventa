@@ -99,8 +99,32 @@ const getDetailedProgram = (eventId, date, callback) => {
     callback(null, rows);
   });
 };
+const updateSession = (sessionId, data, callback) => {
+  const { titre, horaire, salle, president_id } = data;
 
+  const sql = `
+    UPDATE session
+    SET
+      titre = COALESCE(?, titre),
+      horaire = COALESCE(?, horaire),
+      salle = COALESCE(?, salle),
+      president_id = COALESCE(?, president_id)
+    WHERE id = ?
+  `;
+
+  db.query(
+    sql,
+    [titre || null, horaire || null, salle || null, president_id || null, sessionId],
+    (err, result) => {
+      if (err) {
+        console.error('Erreur updateSession:', err);
+        return callback(err, null);
+      }
+      callback(null, result.affectedRows);
+    }
+  );
+};
 module.exports = {
   createSession, assignCommunication,getProgram,
-  getDetailedProgram,
+  getDetailedProgram,updateSession,
 };

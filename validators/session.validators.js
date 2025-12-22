@@ -13,7 +13,21 @@ const createSessionValidation = [
   body('president_id')
     .isInt({ min: 1 }).withMessage('ID président doit être un entier positif')
 ];
-
+// Pour update : tous les champs sont optionnels, mais contrôlés s’ils existent
+const updateSessionValidation = [
+  body('titre')
+    .optional({ nullable: true, checkFalsy: true })
+    .isLength({ max: 255 }).withMessage('Titre trop long'),
+  body('horaire')
+    .optional({ nullable: true, checkFalsy: true })
+    .isISO8601().withMessage('Horaire invalide'),
+  body('salle')
+    .optional({ nullable: true, checkFalsy: true })
+    .isLength({ max: 100 }).withMessage('Salle trop long'),
+  body('president_id')
+    .optional({ nullable: true, checkFalsy: true })
+    .isInt({ min: 1 }).withMessage('ID président doit être un entier positif'),
+];
 module.exports = {
-  createSessionValidation,
+  createSessionValidation,updateSessionValidation,
 };

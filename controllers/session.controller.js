@@ -1,6 +1,6 @@
 const db = require('../db');
 const { validationResult } = require('express-validator');
-const { createSession , assignCommunication , getProgram ,getDetailedProgram} = require('../models/session.model');
+const { createSession , assignCommunication , getProgram ,getDetailedProgram,updateSession, } = require('../models/session.model');
 
 const createSessionController = (req, res) => {
   const errors = validationResult(req);
@@ -200,5 +200,71 @@ const getDetailedProgramController = (req, res) => {
     });
   });
 };
+// PUT /sessions/:sessionId/update
+const updateSessionController = (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      message: 'Données invalides',
+      errors: errors.array(),
+    });
+  }
+
+  const sessionId = req.params.sessionId;
+
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ message: 'Utilisateur non authentifié' });
+  }
+  const userId = req.user.id;
+
+  // Vérifier que la session existe et que l'utilisateur est organisateur de l'événement
+  const sqlSession = `
+    SELECT s.id, s.evenement_id, e.id_organisateur
+    FROM session s
+    JOIN evenement e ON s.evenement_id = e.id
+    WHERE s.id = ?
+  `;
+
+  db.query(sqlSession, [sessionId], (err, results) => {
+    if (err) {
+      console.error('Erreur vérification session:', err);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Session non trouvée' });
+    }
+
+    const row = results[0];
+
+    if (row.id_organisateur !== userId) {
+      return res.status(403).json({
+        message: "Vous n'êtes pas l'organisateur de cet événement",
+      });
+    }
+
+    const { titre, horaire, salle, president_id } = req.body;
+    const data = { titre, horaire, salle, president_id };
+
+    updateSession(sessionId, data, (err2, affectedRows) => {
+      if (err2) {
+        return res
+          .status(500)
+          .json({ message: 'Erreur lors de la mise à jour de la session' });
+      }
+
+      if (affectedRows === 0) {
+        return res.status(400).json({
+          message: "Aucune modification n'a été appliquée",
+        });
+      }
+
+      return res.status(200).json({
+        message: 'Session mise à jour avec succès',
+        sessionId: Number(sessionId),
+      });
+    });
+  });
+};
 module.exports = { createSessionController ,assignCommunicationController,getProgramController,
-  getDetailedProgramController,};
+  getDetailedProgramController,updateSessionController,};
