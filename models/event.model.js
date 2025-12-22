@@ -1,4 +1,3 @@
-//Contient les requêtes SQL pour interagir avec les tables evenement, comite_scientifique, membre_comite, invite, session
 // models/event.model.js
 const db = require('../db');
 
@@ -8,69 +7,52 @@ const createEvent = (data, callback) => {
     INSERT INTO evenement (titre, description, date_debut, date_fin, lieu, thematique, contact, id_organisateur)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `;
-  db.query(sql, [titre, description, date_debut, date_fin, lieu, thematique, contact, id_organisateur], (err, result) => {
-    if (err) {
-      console.error('Erreur insertion événement:', err);
-      return callback(err, null);
+  db.query(
+    sql,
+    [titre, description, date_debut, date_fin, lieu, thematique, contact, id_organisateur],
+    (err, result) => {
+      if (err) return callback(err, null);
+      callback(null, result.insertId);
     }
-    callback(null, result.insertId); // Retourne l'ID de l'événement créé
-  });
+  );
 };
 
-module.exports = { createEvent };
 const addComiteMember = (comiteId, userId, callback) => {
   const sql = `
     INSERT INTO membre_comite (utilisateur_id, comite_id)
     VALUES (?, ?)
   `;
-
   db.query(sql, [userId, comiteId], (err, result) => {
-    if (err) {
-      console.error('Erreur insertion membre_comite:', err);
-      return callback(err);
-    }
-    callback(null, result.insertId); // id de la ligne membre_comite
+    if (err) return callback(err);
+    callback(null, result.insertId);
   });
 };
+
 const addInvite = (eventId, inviteData, callback) => {
   const { nom, prenom, email, sujet_conference } = inviteData;
-
   const sql = `
     INSERT INTO invite (nom, prenom, email, evenement_id, sujet_conference)
     VALUES (?, ?, ?, ?, ?)
   `;
-
   db.query(sql, [nom, prenom, email, eventId, sujet_conference], (err, result) => {
-    if (err) {
-      console.error('Erreur insertion invite:', err);
-      return callback(err);
-    }
-    callback(null, result.insertId); // id de l’invité
+    if (err) return callback(err);
+    callback(null, result.insertId);
   });
 };
-// Récupérer les événements (option status: 'upcoming' ou 'archived')
+
 const getEvents = (status, callback) => {
   let sql = 'SELECT id, titre, description, date_debut, date_fin, lieu, thematique FROM evenement';
-  const params = [];
-
-  if (status === 'upcoming') {
-    sql += ' WHERE date_debut >= CURRENT_DATE()';
-  } else if (status === 'archived') {
-    sql += ' WHERE date_fin < CURRENT_DATE()';
-  }
-
+  if (status === 'upcoming') sql += ' WHERE date_debut >= CURRENT_DATE()';
+  else if (status === 'archived') sql += ' WHERE date_fin < CURRENT_DATE()';
   sql += ' ORDER BY date_debut ASC';
 
-  db.query(sql, params, (err, results) => {
-    if (err) {
-      console.error('Erreur récupération événements:', err);
-      return callback(err);
-    }
+  db.query(sql, [], (err, results) => {
+    if (err) return callback(err);
     callback(null, results);
   });
 };
+
 const getEventDetails = (eventId, callback) => {
-  // 1) Récupérer l'événement
   const sqlEvent = `
     SELECT id, titre, description, date_debut, date_fin, lieu, thematique, contact
     FROM evenement
@@ -78,67 +60,97 @@ const getEventDetails = (eventId, callback) => {
   `;
 
   db.query(sqlEvent, [eventId], (err, eventResult) => {
-    if (err) {
-      console.error('Erreur récupération événement:', err);
-      return callback(err);
-    }
-    if (eventResult.length === 0) {
-      return callback(null, null); // pas trouvé
-    }
+    if (err) return callback(err);
+    if (eventResult.length === 0) return callback(null, null);
 
     const event = eventResult[0];
 
-    // 2) Sessions
     const sqlSessions = `
       SELECT id, titre, horaire, salle, president_id
       FROM session
       WHERE evenement_id = ?
     `;
 
-    db.query(sqlSessions, [eventId], (err, sessionsResult) => {
-      if (err) {
-        console.error('Erreur récupération sessions:', err);
-        return callback(err);
-      }
+    db.query(sqlSessions, [eventId], (err2, sessionsResult) => {
+      if (err2) return callback(err2);
 
-      // 3) Invités
       const sqlInvites = `
         SELECT id, nom, prenom, email, sujet_conference
         FROM invite
         WHERE evenement_id = ?
       `;
 
-      db.query(sqlInvites, [eventId], (err, invitesResult) => {
-        if (err) {
-          console.error('Erreur récupération invités:', err);
-          return callback(err);
-        }
+      db.query(sqlInvites, [eventId], (err3, invitesResult) => {
+        if (err3) return callback(err3);
 
-        // 4) Membres du comité (simple: on ramène les utilisateurs via un JOIN)
         const sqlComite = `
           SELECT u.id, u.nom, u.prenom, u.email
           FROM membre_comite mc
           JOIN comite_scientifique cs ON mc.comite_id = cs.id
-          JOIN utilisateur u ON mc.utilisateur_id = u.id
+          JOIN utilisateur u ON u.id = mc.utilisateur_id
           WHERE cs.evenement_id = ?
         `;
 
-        db.query(sqlComite, [eventId], (err, comiteResult) => {
-          if (err) {
-            console.error('Erreur récupération comité:', err);
-            return callback(err);
-          }
+        db.query(sqlComite, [eventId], (err4, comiteResult) => {
+          if (err4) return callback(err4);
 
-          const details = {
+          callback(null, {
             event,
             sessions: sessionsResult,
             invites: invitesResult,
             comite: comiteResult,
-          };
-
-          callback(null, details);
+          });
         });
       });
+    });
+  });
+};
+
+// ✅ NEW: check deadline soumission
+const isSubmissionOpen = (eventId, callback) => {
+  const sql = `
+    SELECT id, date_limite_communication
+    FROM evenement
+    WHERE id = ?
+    LIMIT 1
+  `;
+  db.query(sql, [eventId], (err, rows) => {
+    if (err) return callback(err);
+
+    if (!rows || rows.length === 0) {
+      return callback(null, { ok: false, reason: 'EVENT_NOT_FOUND' });
+    }
+
+    const deadline = rows[0].date_limite_communication;
+    if (!deadline) return callback(null, { ok: true }); // NULL => ouvert
+
+    const now = new Date();
+    if (now > new Date(deadline)) {
+      return callback(null, { ok: false, reason: 'DEADLINE_PASSED', deadline });
+    }
+
+    return callback(null, { ok: true, deadline });
+  });
+};
+
+// ✅ NEW (PHASE 5): vérifier que DATE(workshop.date) est dans [date_debut, date_fin]
+const checkWorkshopDateInEvent = (eventId, mysqlDateTime, callback) => {
+  const sql = `
+    SELECT date_debut, date_fin,
+           (DATE(?) BETWEEN date_debut AND date_fin) AS ok
+    FROM evenement
+    WHERE id = ?
+    LIMIT 1
+  `;
+  db.query(sql, [mysqlDateTime, eventId], (err, rows) => {
+    if (err) return callback(err);
+    if (!rows || rows.length === 0) return callback(null, { found: false });
+
+    return callback(null, {
+      found: true,
+      ok: rows[0].ok === 1,
+      date_debut: rows[0].date_debut,
+      date_fin: rows[0].date_fin,
     });
   });
 };
@@ -149,4 +161,6 @@ module.exports = {
   addInvite,
   getEvents,
   getEventDetails,
+  isSubmissionOpen,
+  checkWorkshopDateInEvent, // ✅ export
 };

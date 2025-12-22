@@ -4,14 +4,24 @@ const db = require('../db');
 const crypto = require('crypto');          // pour les codes temporaires
 const nodemailer = require('nodemailer');  // pour envoyer les emails
 
+// Tous les rôles possibles (doivent être les mêmes que l'ENUM dans la table utilisateur)
+const ALL_ROLES = [
+  'SUPER_ADMIN',
+  'ORGANISATEUR',
+  'COMMUNICANT',
+  'PARTICIPANT',
+  'MEMBRE_COMITE',
+  'INVITE',
+  'RESP_WORKSHOP',
+];
+
 // REGISTER
 const register = async (req, res) => {
   let { nom, prenom, email, mot_de_passe, role, photo, institution, domaine_recherche } = req.body;
 
-  // Rôle forcé côté serveur (sécurité)
-  const allowedPublicRoles = ['PARTICIPANT', 'COMMUNICANT', 'ORGANISATEUR' , 'INVITE'];
-  if (!allowedPublicRoles.includes(role)) {
-    role = 'PARTICIPANT'; // par défaut
+  // Vérifier que le rôle envoyé est valide
+  if (!ALL_ROLES.includes(role)) {
+    return res.status(400).json({ message: 'Rôle invalide' });
   }
 
   try {
@@ -50,6 +60,7 @@ const register = async (req, res) => {
           res.status(201).json({
             message: 'Utilisateur créé avec succès',
             userId: resultInsert.insertId,
+            role, // pour vérifier côté front
           });
         }
       );
@@ -95,7 +106,7 @@ const login = (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '1d' } // on garde la durée 1 jour
+      { expiresIn: '1d' } // durée 1 jour
     );
 
     res.json({
