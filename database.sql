@@ -380,7 +380,6 @@ CREATE TABLE notification (
     type VARCHAR(50),
     message TEXT NOT NULL,
     date_creation DATETIME DEFAULT CURRENT_TIMESTAMP,
-<<<<<<< HEAD
     lu BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (utilisateur_id) REFERENCES utilisateur(id) ON DELETE CASCADE,
@@ -390,14 +389,6 @@ CREATE TABLE notification (
 -- ============================================
 -- TABLE SONDAGE
 -- ============================================
-=======
-    -- BOOLEAN -> TINYINT(1) dans MySQL
-    lu TINYINT(1) DEFAULT 0,
-    FOREIGN KEY (utilisateur_id) REFERENCES utilisateur(id),
-    FOREIGN KEY (evenement_id) REFERENCES evenement(id)
-);
-
->>>>>>> 474392008d5cf99afa343fff9ca5be470cad575f
 CREATE TABLE sondage (
     id INT PRIMARY KEY AUTO_INCREMENT,
     evenement_id INT NOT NULL,
@@ -428,17 +419,10 @@ CREATE TABLE reponse_sondage (
     sondage_id INT NOT NULL,
     choix_id INT NOT NULL,
     date_reponse DATETIME DEFAULT CURRENT_TIMESTAMP,
-<<<<<<< HEAD
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (utilisateur_id) REFERENCES utilisateur(id) ON DELETE CASCADE,
     FOREIGN KEY (sondage_id) REFERENCES sondage(id) ON DELETE CASCADE,
     FOREIGN KEY (choix_id) REFERENCES choix_sondage(id) ON DELETE CASCADE,
-=======
-    FOREIGN KEY (utilisateur_id) REFERENCES utilisateur(id),
-    FOREIGN KEY (sondage_id) REFERENCES sondage(id),
-    FOREIGN KEY (choix_id) REFERENCES choix_sondage(id),
-    -- contrainte ajoutée
->>>>>>> 474392008d5cf99afa343fff9ca5be470cad575f
     UNIQUE (utilisateur_id, sondage_id)
 );
 
@@ -471,7 +455,6 @@ CREATE TABLE vote_question (
     UNIQUE (question_id, utilisateur_id)
 );
 
-<<<<<<< HEAD
 -- ============================================
 -- INDEXES POUR OPTIMISER LES PERFORMANCES
 -- ============================================
@@ -491,36 +474,23 @@ CREATE INDEX idx_message_destinataire ON message_interne(destinataire_id);
 CREATE INDEX idx_notification_utilisateur ON notification(utilisateur_id);
 CREATE INDEX idx_presence_utilisateur ON presence(utilisateur_id);
 CREATE INDEX idx_presence_evenement ON presence(evenement_id);
-=======
--- tables ajoutées complètement (n’existaient pas dans ta première base)
 
-CREATE TABLE password_reset_token (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    token_hash VARCHAR(255) NOT NULL,
-    expires_at DATETIME NOT NULL,
-    used TINYINT(1) DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES utilisateur(id)
+CREATE TABLE survey (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  event_id INT NOT NULL,
+  title VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE proposition_history (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    submission_id INT NOT NULL,
-    action ENUM('CREATE', 'UPDATE', 'STATUS_CHANGE', 'WITHDRAW') NOT NULL,
-    old_value JSON,
-    new_value JSON,
-    changed_by INT NOT NULL,
-    changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (submission_id) REFERENCES communication(id),
-    FOREIGN KEY (changed_by) REFERENCES utilisateur(id)
+CREATE TABLE survey_question (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  survey_id INT NOT NULL,
+  question_text TEXT NOT NULL
 );
 
-CREATE TABLE rapport_evaluation (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    proposition_id INT NOT NULL,
-    contenu_rapport JSON,
-    date_generation DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (proposition_id) REFERENCES communication(id)
+CREATE TABLE survey_response (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  survey_id INT NOT NULL,
+  user_id INT NOT NULL,
+  question_id INT NOT NULL,
+  answer_text TEXT NOT NULL
 );
->>>>>>> 474392008d5cf99afa343fff9ca5be470cad575f

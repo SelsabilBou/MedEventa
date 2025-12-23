@@ -9,6 +9,8 @@ const { verifyToken } = require('./middlewares/auth.middlewares');
 const submissionRoutes = require('./routes/submission.routes');
 const evaluationRoutes = require('./routes/evaluation.routes');
 const questionRoutes = require('./routes/question.routes');
+const surveyRoutes = require('./routes/survey.routes');
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -29,6 +31,8 @@ app.use('/api/inscriptions', inscriptionRoutes);
 app.use('/api/events', submissionRoutes);
 app.use('/api/evaluations', evaluationRoutes);
 app.use('/api', questionRoutes); // => POST /api/events/:eventId/questions/submit
+app.use('/api', surveyRoutes);
+
 // Route profil protégée
 app.get('/api/profile', verifyToken, (req, res) => {
   res.json({
