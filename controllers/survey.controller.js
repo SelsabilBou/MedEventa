@@ -1,7 +1,7 @@
 // controllers/survey.controller.js
 const { validationResult } = require('express-validator');
 const db = require('../db');
-const { createSurvey, submitResponse } = require('../models/survey.model');
+const { createSurvey, submitResponse ,getSurveyResults } = require('../models/survey.model');
 
 const checkEventOrganizer = (eventId, userId, callback) => {
   const sql = `
@@ -82,8 +82,48 @@ const submitResponseController = (req, res) => {
     });
   });
 };
+const getSurveyResultsController = (req, res) => {
+  const surveyId = parseInt(req.params.surveyId, 10);
 
+  if (isNaN(surveyId)) {
+    return res.status(400).json({ message: 'surveyId invalide' });
+  }
+
+  getSurveyResults(surveyId, (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Erreur lors de la récupération des résultats' });
+    }
+
+    // Regrouper par question
+    const questionsMap = {};
+    rows.forEach((row) => {
+      if (!questionsMap[row.questionId]) {
+        questionsMap[row.questionId] = {
+          questionId: row.questionId,
+          questionText: row.questionText,
+          responses: [],
+        };
+      }
+      if (row.answer) {
+        questionsMap[row.questionId].responses.push({
+          userId: row.userId,
+          userName: row.userName,
+          answer: row.answer,
+        });
+      }
+    });
+
+    const questions = Object.values(questionsMap);
+
+    return res.status(200).json({
+      surveyId,
+      questions,
+    });
+  });
+}
 module.exports = {
   createSurveyController,
   submitResponseController,
+  getSurveyResultsController,
 };

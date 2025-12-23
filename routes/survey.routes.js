@@ -4,14 +4,8 @@ const router = express.Router();
 
 const { verifyToken } = require('../middlewares/auth.middlewares');
 const { requirePermission } = require('../middlewares/permissions');
-const {
-  createSurveyValidation,
-  submitResponseValidation,
-} = require('../validators/survey.validators');
-const {
-  createSurveyController,
-  submitResponseController,
-} = require('../controllers/survey.controller');
+const {createSurveyValidation,submitResponseValidation,} = require('../validators/survey.validators');
+const {createSurveyController,submitResponseController,getSurveyResultsController} = require('../controllers/survey.controller');
 
 // POST /api/events/:eventId/surveys/create
 router.post(
@@ -29,5 +23,10 @@ router.post(
   submitResponseValidation,
   submitResponseController
 );
-
+router.get(
+  '/surveys/:surveyId/results',
+  verifyToken,
+  requirePermission('manage_event'),
+  getSurveyResultsController
+);
 module.exports = router;

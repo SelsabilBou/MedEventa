@@ -101,6 +101,35 @@ const voteQuestionController = (req, res) => {
     });
   });
 };
+const { getQuestionsByEvent } = require('../models/question.model');
+
+const getQuestionsByEventController = (req, res) => {
+  const eventId = parseInt(req.params.eventId, 10);
+
+  if (isNaN(eventId)) {
+    return res.status(400).json({ message: 'eventId invalide' });
+  }
+
+  getQuestionsByEvent(eventId, (err, questions) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Erreur lors de la récupération des questions' });
+    }
+
+    return res.status(200).json({
+      eventId,
+      questions: questions.map((q) => ({
+        id: q.id,
+        content: q.content,
+        likes: q.likes,
+        user: {
+          id: q.userId,
+          name: q.userName,
+        },
+      })),
+    });
+  });
+};
 module.exports = {
-  submitQuestionController,voteQuestionController,
+  submitQuestionController,voteQuestionController,getQuestionsByEventController,
 };

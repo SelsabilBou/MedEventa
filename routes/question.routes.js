@@ -4,7 +4,7 @@ const router = express.Router();
 
 const { verifyToken } = require('../middlewares/auth.middlewares');
 const { submitQuestionValidation } = require('../validators/question.validators');
-const { submitQuestionController ,voteQuestionController } = require('../controllers/question.controller');
+const { submitQuestionController ,voteQuestionController ,getQuestionsByEventController } = require('../controllers/question.controller');
 
 // Phase 1 : soumission de question par un participant
 // POST /events/:eventId/questions/submit
@@ -20,4 +20,10 @@ router.post(
   verifyToken,
   voteQuestionController
 );
+// GET /api/events/:eventId/questions (semi-public)
+router.get(
+  '/events/:eventId/questions',
+  getQuestionsByEventController
+);
+
 module.exports = router;

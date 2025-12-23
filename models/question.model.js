@@ -45,6 +45,29 @@ const voteQuestion = (questionId, userId, callback) => {
     });
   });
 };
+// Récupérer les questions d'un événement avec nombre de likes
+const getQuestionsByEvent = (eventId, callback) => {
+  const sql = `
+    SELECT 
+      q.id,
+      q.contenu AS content,
+      q.utilisateur_id AS userId,
+      u.nom AS userName,
+      COUNT(v.id) AS likes
+    FROM question q
+    LEFT JOIN vote v ON v.question_id = q.id
+    LEFT JOIN utilisateur u ON u.id = q.utilisateur_id
+    WHERE q.evenement_id = ?
+    GROUP BY q.id, q.contenu, q.utilisateur_id, u.nom
+    ORDER BY likes DESC, q.id ASC
+  `;
+
+  db.query(sql, [eventId], (err, results) => {
+    if (err) return callback(err);
+    callback(null, results);
+  });
+};
+
 module.exports = {
-  createQuestion,voteQuestion,
+  createQuestion,voteQuestion,getQuestionsByEvent,
 };

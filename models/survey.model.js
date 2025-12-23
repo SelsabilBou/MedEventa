@@ -54,8 +54,29 @@ const submitResponse = (surveyId, userId, responses, callback) => {
     callback(null);
   });
 };
+const getSurveyResults = (surveyId, callback) => {
+  const sql = `
+    SELECT 
+      q.id AS questionId,
+      q.question_text AS questionText,
+      r.user_id AS userId,
+      u.nom AS userName,
+      r.answer_text AS answer
+    FROM survey_question q
+    LEFT JOIN survey_response r 
+      ON r.question_id = q.id AND r.survey_id = ?
+    LEFT JOIN utilisateur u 
+      ON u.id = r.user_id
+    WHERE q.survey_id = ?
+    ORDER BY q.id ASC, r.id ASC
+  `;
 
+  db.query(sql, [surveyId, surveyId], (err, results) => {
+    if (err) return callback(err);
+    callback(null, results);
+  });
+};
 module.exports = {
   createSurvey,
-  submitResponse,
+  submitResponse,getSurveyResults,
 };
