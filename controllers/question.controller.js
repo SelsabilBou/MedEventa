@@ -1,7 +1,7 @@
 // controllers/question.controller.js
 const { validationResult } = require('express-validator');
 const db = require('../db');
-const { createQuestion } = require('../models/question.model');
+const { createQuestion ,voteQuestion } = require('../models/question.model');
 
 // POST /events/:eventId/questions/submit
 const submitQuestionController = (req, res) => {
@@ -55,7 +55,54 @@ const submitQuestionController = (req, res) => {
     });
   });
 };
+// même helper que tout à l’heure pour vérifier session active
+const isQuestionInActiveSession = (questionId, callback) => {
+  const sql = `
+    SELECT q.id
+    FROM question q
+    JOIN session s ON q.session_id = s.id
+    WHERE q.id = ?
+      
+  `;
+  db.query(sql, [questionId], (err, results) => {
+    if (err) return callback(err);
+    if (results.length === 0) return callback(null, false);
+    callback(null, true);
+  });
+};
 
+const voteQuestionController = (req, res) => {
+  const questionId = parseInt(req.params.questionId, 10);
+  const userId = req.user.id;
+
+  if (isNaN(questionId)) {
+    return res.status(400).json({ message: 'questionId invalide' });
+  }
+
+  isQuestionInActiveSession(questionId, (checkErr, isActive) => {
+    if (checkErr) {
+      console.error(checkErr);
+      return res.status(500).json({ message: 'Erreur serveur (vérification session)' });
+    }
+
+    if (!isActive) {
+      return res.status(400).json({ message: 'La question n’appartient pas à une session active' });
+    }
+
+    voteQuestion(questionId, userId, (voteErr, totals) => {
+      if (voteErr) {
+        console.error(voteErr);
+        return res.status(500).json({ message: 'Erreur lors de l’enregistrement du like' });
+      }
+
+      return res.status(200).json({
+        message: 'Like enregistré avec succès',
+        questionId,
+        totals,
+      });
+    });
+  });
+};
 module.exports = {
-  submitQuestionController,
+  submitQuestionController,voteQuestionController,
 };

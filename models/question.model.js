@@ -21,7 +21,30 @@ const createQuestion = (eventId, userId, data, callback) => {
     callback(null, result.insertId); // ID de la question créée
   });
 };
+// Like = créer (ou maintenir) un vote pour (question, user)
+const voteQuestion = (questionId, userId, callback) => {
+  const sql = `
+    INSERT INTO vote (question_id, user_id)
+    VALUES (?, ?)
+    ON DUPLICATE KEY UPDATE user_id = user_id
+  `;
 
+  db.query(sql, [questionId, userId], (err) => {
+    if (err) return callback(err);
+
+    const countSql = `
+      SELECT COUNT(*) AS likes
+      FROM vote
+      WHERE question_id = ?
+    `;
+
+    db.query(countSql, [questionId], (countErr, results) => {
+      if (countErr) return callback(countErr);
+      const likes = results[0]?.likes || 0;
+      callback(null, { likes });
+    });
+  });
+};
 module.exports = {
-  createQuestion,
+  createQuestion,voteQuestion,
 };
