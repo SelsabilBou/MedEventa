@@ -56,13 +56,11 @@ const submitQuestionController = (req, res) => {
   });
 };
 // même helper que tout à l’heure pour vérifier session active
-const isQuestionInActiveSession = (questionId, callback) => {
+const doesQuestionExist = (questionId, callback) => {
   const sql = `
     SELECT q.id
-    FROM question q
-    JOIN session s ON q.session_id = s.id
+    FROM question q 
     WHERE q.id = ?
-      
   `;
   db.query(sql, [questionId], (err, results) => {
     if (err) return callback(err);
@@ -79,7 +77,7 @@ const voteQuestionController = (req, res) => {
     return res.status(400).json({ message: 'questionId invalide' });
   }
 
-  isQuestionInActiveSession(questionId, (checkErr, isActive) => {
+  doesQuestionExist(questionId, (checkErr, isActive) => {
     if (checkErr) {
       console.error(checkErr);
       return res.status(500).json({ message: 'Erreur serveur (vérification session)' });
