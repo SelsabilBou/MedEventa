@@ -44,5 +44,20 @@ const markAsRead = (notificationId, userId) => {
     );
   });
 };
+const getUnreadCountForUser = (userId) => {
+  return new Promise((resolve, reject) => {
+    db.query(
+      `SELECT COUNT(*) AS unreadCount
+       FROM notification
+       WHERE utilisateur_id = ? AND lu = 0`,
+      [userId],
+      (err, results) => {
+        if (err) return reject(err);
+        resolve(results[0]?.unreadCount || 0);
+      }
+    );
+  });
+};
 
-module.exports = { createNotification, getNotificationsForUser, markAsRead };
+
+module.exports = { createNotification, getNotificationsForUser, markAsRead ,getUnreadCountForUser };

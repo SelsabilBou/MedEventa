@@ -1,6 +1,6 @@
 const { validationResult } = require('express-validator');
 const { createMessage, getMessagesForUser } = require('../models/message.model');
-
+const { getNotificationsForUser } = require('../models/notification.model');
 // POST /api/messages/send
 const sendMessage = async (req, res) => {
   try {
@@ -44,5 +44,26 @@ const getMessages = async (req, res) => {
     return res.status(500).json({ message: 'Erreur serveur lors de la récupération des messages' });
   }
 };
+// GET /api/dashboard/activity
+const getDashboardActivity = async (req, res) => {
+  try {
+    const userId = req.user.id;
 
-module.exports = { sendMessage, getMessages };
+    // On limite par ex. à 10 messages récents
+    const [messages, notifications, unreadCount] = await Promise.all([
+      getMessagesForUser(userId, 10),
+      getNotificationsForUser(userId),
+      getUnreadCountForUser(userId),
+    ]);
+
+    return res.status(200).json({
+      messages,
+      notifications,
+      unreadCount,
+    });
+  } catch (error) {
+    console.error('Erreur getDashboardActivity:', error);
+    return res.status(500).json({ message: 'Erreur serveur lors du chargement du tableau de bord' });
+  }
+};
+module.exports = { sendMessage, getMessages, getDashboardActivity };
