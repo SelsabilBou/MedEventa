@@ -10,6 +10,7 @@ const submissionRoutes = require('./routes/submission.routes');
 const evaluationRoutes = require('./routes/evaluation.routes');
 const questionRoutes = require('./routes/question.routes');
 const surveyRoutes = require('./routes/survey.routes');
+const messageRoutes = require('./routes/message.routes');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -32,6 +33,7 @@ app.use('/api/events', submissionRoutes);
 app.use('/api/evaluations', evaluationRoutes);
 app.use('/api', questionRoutes); // => POST /api/events/:eventId/questions/submit
 app.use('/api', surveyRoutes);
+app.use('/api', messageRoutes);
 
 // Route profil protégée
 app.get('/api/profile', verifyToken, (req, res) => {
