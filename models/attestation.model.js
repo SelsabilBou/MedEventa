@@ -93,9 +93,53 @@ function deleteAttestation(id, callback) {
     callback(null, result);
   });
 }
+function upsertAttestation(data, callback) {
+  const sql = `
+    INSERT INTO attestation (utilisateur_id, evenement_id, type, date_generation, fichier_pdf, unique_code)
+    VALUES (?, ?, ?, CURRENT_DATE, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      date_generation = CURRENT_DATE,
+      fichier_pdf = VALUES(fichier_pdf),
+      unique_code = VALUES(unique_code)
+  `;
+
+  const params = [
+    data.utilisateurId,
+    data.evenementId,
+    data.type,
+    data.fichierPdf,
+    data.uniqueCode || null
+  ];
+
+  db.query(sql, params, (err, result) => {
+    if (err) return callback(err);
+
+    // رجّع أحدث row
+    getAttestationByUser(data.evenementId, data.utilisateurId, data.type, callback);
+  });
+}
+function getAttestationByUniqueCode(uniqueCode, callback) {
+  const sql = `
+    SELECT a.*, u.nom, u.prenom, e.titre AS event_titre
+    FROM attestation a
+    JOIN utilisateur u ON u.id = a.utilisateur_id
+    JOIN evenement e ON e.id = a.evenement_id
+    WHERE a.unique_code = ?
+    LIMIT 1
+  `;
+  db.query(sql, [uniqueCode], (err, rows) => {
+    if (err) return callback(err);
+    callback(null, rows[0] || null);
+  });
+}
+
+
 
 module.exports = {
   createAttestation,
+  upsertAttestation,            // ✅ Phase 5
+  getAttestationByUniqueCode,   // ✅ Phase 5
+
   getAttestationById,
   getAttestationByUser,
   listAttestationsByEvent,

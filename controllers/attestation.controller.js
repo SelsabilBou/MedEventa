@@ -6,9 +6,11 @@ const { validationResult } = require('express-validator');
 
 const {
   createAttestation,
+  upsertAttestation, 
   getAttestationByUser,
   listAttestationsByEvent
 } = require('../models/attestation.model');
+
 
 const { getUserById } = require('../models/user.model');
 const { getEventById } = require('../models/event.model');
@@ -23,17 +25,13 @@ const {
 
 const AttestationService = require("../services/attestation.service");
 
-// (هذا غير بقايا من Phase 2، تقدر تخليه، بصح Phase 3 تولي service تتكفل بالدوسي)
-// انت عندك داخل project root/uploads/attestations موجود أصلاً
+
 const ATTESTATIONS_DIR = path.join(__dirname, '..', 'uploads', 'attestations');
 if (!fs.existsSync(ATTESTATIONS_DIR)) {
   fs.mkdirSync(ATTESTATIONS_DIR, { recursive: true });
 }
 
-/**
- * (قديم) generateAttestationPdf داخل controller
- * Phase 3 ما بقيناش نستعملوه، نخلّيه فقط باش ما يكسرش حاجة عندك.
- */
+
 function generateAttestationPdf({ filename, user, event, type }, callback) {
   const filePath = path.join(ATTESTATIONS_DIR, filename);
 
@@ -320,7 +318,9 @@ function downloadMyAttestation(req, res) {
 
 /**
  * POST /api/attestations/admin/generate
- * Phase 3: نفس generateMyAttestation لكن لadmin
+ * Phase 5:
+ * - cache: إذا attestation موجودة ما نعاودش نولدها
+ * - force=true: نعاود نولد PDF ونحدث row (upsert)
  */
 function generateAttestationForUser(req, res) {
   const errors = validationResult(req);
@@ -328,16 +328,17 @@ function generateAttestationForUser(req, res) {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { evenementId, utilisateurId, type } = req.body;
+  const { evenementId, utilisateurId, type, force } = req.body;
 
   getAttestationByUser(evenementId, utilisateurId, type, (err, existing) => {
     if (err) {
       return res.status(500).json({ message: 'Erreur serveur', error: err });
     }
 
-    if (existing) {
+    // ✅ cache
+    if (existing && !force) {
       return res.status(200).json({
-        message: 'Attestation déjà générée',
+        message: 'Attestation déjà générée (cache)',
         attestation: existing
       });
     }
@@ -369,7 +370,7 @@ function generateAttestationForUser(req, res) {
           });
         }
 
-        // 3) Phase 3 service
+        // 3) توليد PDF عبر service
         AttestationService.generateAttestationPdf({
           eventId: evenementId,
           userId: utilisateurId,
@@ -384,17 +385,20 @@ function generateAttestationForUser(req, res) {
               uniqueCode
             };
 
-            createAttestation(attData, (createErr, created) => {
-              if (createErr) {
+            // ✅ Phase 5: upsert (إذا كان موجود و force=true راح يحدّث)
+            upsertAttestation(attData, (saveErr, savedRow) => {
+              if (saveErr) {
                 return res.status(500).json({
-                  message: 'Erreur création attestation',
-                  error: createErr
+                  message: 'Erreur création/mise à jour attestation',
+                  error: saveErr
                 });
               }
 
-              return res.status(201).json({
-                message: 'Attestation générée (admin)',
-                attestation: created
+              return res.status(existing ? 200 : 201).json({
+                message: existing
+                  ? 'Attestation régénérée (force=true)'
+                  : 'Attestation générée (admin)',
+                attestation: savedRow
               });
             });
           })
@@ -408,7 +412,6 @@ function generateAttestationForUser(req, res) {
     });
   });
 }
-
 // GET /api/attestations/evenement/:evenementId
 function listEventAttestations(req, res) {
   const errors = validationResult(req);
@@ -425,6 +428,8 @@ function listEventAttestations(req, res) {
     return res.status(200).json(rows);
   });
 }
+
+
 
 module.exports = {
   generateMyAttestation,

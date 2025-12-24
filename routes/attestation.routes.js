@@ -2,7 +2,6 @@
 const express = require('express');
 const router = express.Router();
 
-// ✅ paths الصحيحين حسب مشروعك
 const { verifyToken } = require('../middlewares/auth.middleware');
 const { requirePermission } = require('../middlewares/permissions');
 
@@ -10,7 +9,11 @@ const {
   validateGenerateMyAttestation,
   validateGenerateAttestationForUser,
   validateListEventAttestations,
-  validateDownloadMyAttestation
+  validateDownloadMyAttestation,
+
+  // ✅ Phase 5
+  validateVerifyAttestation,
+  validateBatchGenerateAttestations
 } = require('../validators/attestation.validators');
 
 const {
@@ -19,6 +22,10 @@ const {
   generateAttestationForUser,
   listEventAttestations
 } = require('../controllers/attestation.controller');
+
+// ✅ Phase 5 controllers (جدد)
+const { verifyAttestation } = require('../controllers/attestation.verify.controller');
+const { generateBatchForEvent } = require('../controllers/attestation.batch.controller');
 
 // ===============================
 // Utilisateur normal
@@ -30,14 +37,20 @@ router.post(
   generateMyAttestation
 );
 
-// ✅ Phase 3: نفس الـ endpoint، لكن controller يولي:
-// - يجيب fichier_pdf من DB
-// - إذا ماكانش: يولّد PDF unique ويحفظه ثم يحمّله
 router.get(
   '/me/download',
   verifyToken,
   validateDownloadMyAttestation,
   downloadMyAttestation
+);
+
+// ===============================
+// Phase 5: Verify (PUBLIC)
+// ===============================
+router.get(
+  '/verify/:uniqueCode',
+  validateVerifyAttestation,
+  verifyAttestation
 );
 
 // ===============================
@@ -51,6 +64,15 @@ router.post(
   generateAttestationForUser
 );
 
+// ✅ Phase 5: Batch génération (ADMIN)
+router.post(
+  '/admin/batch/:eventId',
+  verifyToken,
+  requirePermission('generate_attestation'),
+  validateBatchGenerateAttestations,
+  generateBatchForEvent
+);
+
 router.get(
   '/evenement/:evenementId',
   verifyToken,
@@ -58,18 +80,5 @@ router.get(
   validateListEventAttestations,
   listEventAttestations
 );
-
-/**
- * ✅ OPTIONNEL (إذا تحب URL أحسن):
- * GET /api/attestations/me/download/1/participant
- *
- * ملاحظة: إذا زدتها لازم تزيد validator جديد للـ params
- * ولا تقدر تخليها بلا validator (مش مستحسن).
- */
-// router.get(
-//   '/me/download/:evenementId/:type',
-//   verifyToken,
-//   downloadMyAttestation
-// );
 
 module.exports = router;
