@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const db = require('../db');
 
 const createMessage = (expediteur_id, destinataire_id, evenement_id, contenu, type = 'notif') => {
   return new Promise((resolve, reject) => {
