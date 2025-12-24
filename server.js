@@ -16,6 +16,9 @@ const notificationRoutes = require('./routes/notification.routes');
 const app = express();
 const port = process.env.PORT || 3000;
 
+const attestationRoutes = require('./routes/attestation.routes');
+const statsRoutes = require('./routes/stats.routes');
+
 // Logger simple
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
