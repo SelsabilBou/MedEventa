@@ -60,4 +60,4 @@ const getUnreadCountForUser = (userId) => {
 };
 
 
-module.exports = { createNotification, getNotificationsForUser, markAsRead ,getUnreadCountForUser };
+module.exports = { createNotification, getNotificationsForUser, markAsRead ,getUnreadCountForUser, };
