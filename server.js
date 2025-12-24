@@ -12,8 +12,10 @@ const workshopRoutes = require('./routes/workshop.routes');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
 const attestationRoutes = require('./routes/attestation.routes');
 const statsRoutes = require('./routes/stats.routes');
+
 // Logger simple
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
@@ -29,9 +31,11 @@ app.use('/api/events', eventRoutes);
 app.use('/api', sessionRoutes);              // /api/events/:eventId/sessions etc.
 app.use('/api/inscriptions', inscriptionRoutes);
 app.use('/api/events', submissionRoutes);
-// (une seule fois suffit)
 app.use('/api/events', workshopRoutes);
 app.use('/api/attestations', attestationRoutes);
+
+// ✅ غير حركنا هذا السطر للفوق
+app.use('/api', statsRoutes);
 
 // Route profil protégée
 app.get('/api/profile', verifyToken, (req, res) => {
@@ -52,7 +56,6 @@ app.use((req, res) => {
     message: `Route non trouvée: ${req.method} ${req.originalUrl}`,
   });
 });
-app.use('/api', statsRoutes);
 
 // Lancement serveur
 app.listen(port, () => {
