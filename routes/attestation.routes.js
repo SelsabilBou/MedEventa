@@ -2,7 +2,8 @@
 const express = require('express');
 const router = express.Router();
 
-const { verifyToken } = require('../middlewares/auth');
+// ✅ paths الصحيحين حسب مشروعك
+const { verifyToken } = require('../middlewares/auth.middleware');
 const { requirePermission } = require('../middlewares/permissions');
 
 const {
