@@ -3,25 +3,33 @@ const permissions = {
   SUPER_ADMIN: [
     'create_event', 'delete_user', 'view_all', 'manage_evaluations',
     'decide_submission',
-    'view_submissions', 
+    'view_submissions',
     'create_workshop',
     'edit_workshop',
     'delete_workshop',
     'view_workshops',
     'manage_workshop_inscriptions',
-    'manage_workshop_supports'
+    'manage_workshop_supports',
+
+    // ✅ ajout attestations
+    'generate_attestation',
+    'view_attestations'
   ],
 
   ORGANISATEUR: [
     'create_event', 'edit_event', 'manage_inscriptions', 'manage_evaluations',
     'decide_submission',
-    'view_submissions', 
+    'view_submissions',
     'create_workshop',
     'edit_workshop',
     'delete_workshop',
     'view_workshops',
     'manage_workshop_inscriptions',
-    'manage_workshop_supports'
+    'manage_workshop_supports',
+
+    // ✅ ajout attestations
+    'generate_attestation',
+    'view_attestations'
   ],
 
   COMMUNICANT: [
