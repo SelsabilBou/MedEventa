@@ -154,6 +154,18 @@ const checkWorkshopDateInEvent = (eventId, mysqlDateTime, callback) => {
     });
   });
 };
+const getEventById = (eventId, callback) => {
+  const sql = `
+    SELECT id, titre, description, date_debut, date_fin, lieu, thematique
+    FROM evenement
+    WHERE id = ?
+    LIMIT 1
+  `;
+  db.query(sql, [eventId], (err, rows) => {
+    if (err) return callback(err);
+    callback(null, rows[0] || null);
+  });
+};
 
 module.exports = {
   createEvent,
@@ -162,5 +174,6 @@ module.exports = {
   getEvents,
   getEventDetails,
   isSubmissionOpen,
-  checkWorkshopDateInEvent, // ✅ export
-};
+  checkWorkshopDateInEvent,
+  getEventById, // 👈 important
+}

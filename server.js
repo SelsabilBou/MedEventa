@@ -12,7 +12,7 @@ const workshopRoutes = require('./routes/workshop.routes');
 
 const app = express();
 const port = process.env.PORT || 3000;
-
+const attestationRoutes = require('./routes/attestation.routes');
 // Logger simple
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
@@ -30,6 +30,7 @@ app.use('/api/inscriptions', inscriptionRoutes);
 app.use('/api/events', submissionRoutes);
 // (une seule fois suffit)
 app.use('/api/events', workshopRoutes);
+app.use('/api/attestations', attestationRoutes);
 
 // Route profil protégée
 app.get('/api/profile', verifyToken, (req, res) => {
