@@ -80,7 +80,6 @@ const EventDetailsPage = () => {
   const [paymentMethod, setPaymentMethod] = useState("onsite");
   const [inscriptionData, setInscriptionData] = useState(null);
   const [badgeReady, setBadgeReady] = useState(false);
-  const [showPaymentStep, setShowPaymentStep] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
 
   // Program Filter State
@@ -959,10 +958,62 @@ const EventDetailsPage = () => {
     }));
   };
 
+  // Validate payment form
+  const validatePaymentForm = () => {
+    if (paymentMethod === "online") {
+      if (!cardNumber.trim()) {
+        setPaymentFormError("Card number is required");
+        return false;
+      }
+      if (!cardExpiry.trim()) {
+        setPaymentFormError("Expiry date is required");
+        return false;
+      }
+      if (!cardCvc.trim()) {
+        setPaymentFormError("CVC is required");
+        return false;
+      }
+      if (!cardHolderName.trim()) {
+        setPaymentFormError("Card holder name is required");
+        return false;
+      }
+
+      // Simple validation for card number (16 digits)
+      const cardNumberClean = cardNumber.replace(/\s/g, "");
+      if (!/^\d{16}$/.test(cardNumberClean)) {
+        setPaymentFormError("Card number must be 16 digits");
+        return false;
+      }
+
+      // Simple validation for expiry date (MM/YY)
+      if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
+        setPaymentFormError("Expiry date must be in MM/YY format");
+        return false;
+      }
+
+      // Simple validation for CVC (3 digits)
+      if (!/^\d{3}$/.test(cardCvc)) {
+        setPaymentFormError("CVC must be 3 digits");
+        return false;
+      }
+    }
+
+    setPaymentFormError("");
+    return true;
+  };
+
+  // Handle event registration
   const handleConfirmRegistration = async (e) => {
     e.preventDefault();
+
+    // Validate payment form if online payment is selected
+    if (paymentMethod === "online" && !validatePaymentForm()) {
+      return;
+    }
+
     setLoading(true);
     setEventRegistrationError("");
+    setPaymentFormError("");
 
     try {
       const token = localStorage.getItem("token");
@@ -982,8 +1033,66 @@ const EventDetailsPage = () => {
       if (response.status === 201) {
         const inscriptionId = response.data.inscriptionId;
 
-        // If online payment, show payment step
+        // If online payment, update payment status
         if (paymentMethod === "online") {
+          setProcessingPayment(true);
+
+          try {
+            // Update payment status using the correct endpoint
+            const updateResponse = await axios.put(
+              `/api/inscriptions/${inscriptionId}/payment-status`,
+              { status: "payeenligne" }, // Backend expects status field
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            );
+
+            if (updateResponse.status === 200) {
+              // Online payment successful
+              setInscriptionData({
+                ...response.data,
+                inscriptionId,
+                fullName,
+                email,
+                organisation,
+              });
+              setBadgeReady(true);
+              setShowRegistrationModal(false);
+              setProcessingPayment(false);
+
+              // Trigger dashboard update with registration data
+              const dashboardData = {
+                id: Date.now(),
+                type: "Event",
+                title: event.name,
+                parent: "",
+                place: event.location || "",
+                date: event.startDate || new Date().toLocaleDateString(),
+                status: "confirmed",
+                paymentStatus: "payeenligne",
+              };
+
+              window.dispatchEvent(
+                new CustomEvent("registration-updated", {
+                  detail: dashboardData,
+                })
+              );
+            }
+          } catch (paymentError) {
+            console.error("Payment processing error:", paymentError);
+            setEventRegistrationError(
+              paymentError.response?.data?.message ||
+                "Payment processing failed. Please try again or contact support."
+            );
+            setProcessingPayment(false);
+            setLoading(false);
+            return;
+          }
+        } else {
+          // For onsite payment, complete registration
           setInscriptionData({
             ...response.data,
             inscriptionId,
@@ -991,40 +1100,28 @@ const EventDetailsPage = () => {
             email,
             organisation,
           });
-          setShowPaymentStep(true);
-          setLoading(false);
-          return;
+          setBadgeReady(true);
+          setShowRegistrationModal(false);
+          setEventRegistrationError("");
+
+          // Trigger dashboard update with registration data
+          const dashboardData = {
+            id: Date.now(),
+            type: "Event",
+            title: event.name,
+            parent: "",
+            place: event.location || "",
+            date: event.startDate || new Date().toLocaleDateString(),
+            status: "confirmed",
+            paymentStatus: "a_payer",
+          };
+
+          window.dispatchEvent(
+            new CustomEvent("registration-updated", {
+              detail: dashboardData,
+            })
+          );
         }
-
-        // For onsite payment, complete registration
-        setInscriptionData({
-          ...response.data,
-          inscriptionId,
-          fullName,
-          email,
-          organisation,
-        });
-        setBadgeReady(true);
-        setShowRegistrationModal(false);
-        setEventRegistrationError("");
-
-        // Trigger dashboard update with registration data
-        const dashboardData = {
-          id: Date.now(),
-          type: "Event",
-          title: event.name,
-          parent: "",
-          place: event.location || "",
-          date: event.startDate || new Date().toLocaleDateString(),
-          status: "confirmed",
-          paymentStatus: "a_payer",
-        };
-
-        window.dispatchEvent(
-          new CustomEvent("registration-updated", {
-            detail: dashboardData,
-          })
-        );
       }
     } catch (error) {
       console.error("Registration error:", error);
@@ -1032,124 +1129,8 @@ const EventDetailsPage = () => {
         error.response?.data?.message ||
           "Registration failed. Please try again."
       );
+    } finally {
       setLoading(false);
-    }
-  };
-
-  // Validate payment form
-  const validatePaymentForm = () => {
-    if (!cardNumber.trim()) {
-      setPaymentFormError("Card number is required");
-      return false;
-    }
-    if (!cardExpiry.trim()) {
-      setPaymentFormError("Expiry date is required");
-      return false;
-    }
-    if (!cardCvc.trim()) {
-      setPaymentFormError("CVC is required");
-      return false;
-    }
-    if (!cardHolderName.trim()) {
-      setPaymentFormError("Card holder name is required");
-      return false;
-    }
-
-    // Simple validation for card number (16 digits)
-    const cardNumberClean = cardNumber.replace(/\s/g, "");
-    if (!/^\d{16}$/.test(cardNumberClean)) {
-      setPaymentFormError("Card number must be 16 digits");
-      return false;
-    }
-
-    // Simple validation for expiry date (MM/YY)
-    if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
-      setPaymentFormError("Expiry date must be in MM/YY format");
-      return false;
-    }
-
-    // Simple validation for CVC (3 digits)
-    if (!/^\d{3}$/.test(cardCvc)) {
-      setPaymentFormError("CVC must be 3 digits");
-      return false;
-    }
-
-    setPaymentFormError("");
-    return true;
-  };
-
-  // Handle online payment processing
-  const handleProcessPayment = async () => {
-    if (!inscriptionData?.inscriptionId) {
-      setEventRegistrationError(
-        "Registration data not found. Please try again."
-      );
-      return;
-    }
-
-    // Validate payment form
-    if (!validatePaymentForm()) {
-      return;
-    }
-
-    setProcessingPayment(true);
-    setEventRegistrationError("");
-
-    try {
-      const token = localStorage.getItem("token");
-
-      // Simulate payment processing delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Update payment status using the correct endpoint
-      const updateResponse = await axios.put(
-        `/api/inscriptions/${inscriptionData.inscriptionId}/payment-status`,
-        { status: "payeenligne" }, // Backend expects status field
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (updateResponse.status === 200) {
-        // Payment successful
-        setBadgeReady(true);
-        setShowPaymentStep(false);
-        setShowRegistrationModal(false);
-        setProcessingPayment(false);
-
-        // Clear payment form
-        setCardNumber("");
-        setCardExpiry("");
-        setCardCvc("");
-
-        // Trigger dashboard update with registration data
-        const dashboardData = {
-          id: Date.now(),
-          type: "Event",
-          title: event.name,
-          parent: "",
-          place: event.location || "",
-          date: event.startDate || new Date().toLocaleDateString(),
-          status: "confirmed",
-          paymentStatus: "payeenligne",
-        };
-
-        window.dispatchEvent(
-          new CustomEvent("registration-updated", {
-            detail: dashboardData,
-          })
-        );
-      }
-    } catch (error) {
-      console.error("Payment processing error:", error);
-      setEventRegistrationError(
-        error.response?.data?.message ||
-          "Payment processing failed. Please try again or contact support."
-      );
-      setProcessingPayment(false);
     }
   };
 
@@ -1461,7 +1442,7 @@ const EventDetailsPage = () => {
         )}
       </div>
 
-      {/* EVENT REGISTRATION MODAL */}
+      {/* EVENT REGISTRATION MODAL - WITH PAYMENT FORM INSIDE */}
       {showRegistrationModal && (
         <div className="ed-modal-backdrop">
           <div className="ed-modal large">
@@ -1469,7 +1450,7 @@ const EventDetailsPage = () => {
               type="button"
               className="ed-modal-close"
               onClick={() => setShowRegistrationModal(false)}
-              disabled={loading}
+              disabled={loading || processingPayment}
             >
               ×
             </button>
@@ -1488,6 +1469,13 @@ const EventDetailsPage = () => {
                   <FaTimes /> {eventRegistrationError}
                 </div>
               )}
+
+              {paymentFormError && (
+                <div className="ed-message-error">
+                  <FaTimes /> {paymentFormError}
+                </div>
+              )}
+
               <form
                 id="ed-registration-form"
                 onSubmit={handleConfirmRegistration}
@@ -1504,7 +1492,7 @@ const EventDetailsPage = () => {
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="John Smith"
                       required
-                      disabled={loading}
+                      disabled={loading || processingPayment}
                     />
                   </div>
                   <div className="ed-form-group">
@@ -1518,7 +1506,7 @@ const EventDetailsPage = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="john.smith@company.com"
                       required
-                      disabled={loading}
+                      disabled={loading || processingPayment}
                     />
                   </div>
                   <div className="ed-form-group">
@@ -1531,7 +1519,7 @@ const EventDetailsPage = () => {
                       value={organisation}
                       onChange={(e) => setOrganisation(e.target.value)}
                       placeholder="Your organisation"
-                      disabled={loading}
+                      disabled={loading || processingPayment}
                     />
                   </div>
                 </div>
@@ -1579,13 +1567,93 @@ const EventDetailsPage = () => {
                   </div>
                 </div>
 
+                {/* PAYMENT FORM - SHOWS WHEN "PAY ONLINE" IS SELECTED */}
+                {paymentMethod === "online" && (
+                  <div className="ed-card-payment-section">
+                    <h4 className="ed-section-title">
+                      <FaRegCreditCard /> Payment Details
+                    </h4>
+                    <div className="ed-card-form">
+                      <div className="ed-form-group">
+                        <label htmlFor="cardHolderName">
+                          Card Holder Name{" "}
+                          <span className="ed-required">*</span>
+                        </label>
+                        <input
+                          id="cardHolderName"
+                          type="text"
+                          placeholder="John Smith"
+                          value={cardHolderName}
+                          onChange={(e) => setCardHolderName(e.target.value)}
+                          disabled={loading || processingPayment}
+                        />
+                      </div>
+
+                      <div className="ed-form-group">
+                        <label htmlFor="cardNumber">
+                          Card Number <span className="ed-required">*</span>
+                        </label>
+                        <div className="ed-card-input">
+                          <FaRegCreditCard className="ed-card-icon" />
+                          <input
+                            id="cardNumber"
+                            type="text"
+                            placeholder="1234 5678 9012 3456"
+                            value={cardNumber}
+                            onChange={(e) => setCardNumber(e.target.value)}
+                            disabled={loading || processingPayment}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="ed-card-details">
+                        <div className="ed-form-group">
+                          <label htmlFor="cardExpiry">
+                            Expiry Date (MM/YY){" "}
+                            <span className="ed-required">*</span>
+                          </label>
+                          <input
+                            id="cardExpiry"
+                            type="text"
+                            placeholder="MM/YY"
+                            value={cardExpiry}
+                            onChange={(e) => setCardExpiry(e.target.value)}
+                            disabled={loading || processingPayment}
+                          />
+                        </div>
+                        <div className="ed-form-group">
+                          <label htmlFor="cardCvc">
+                            CVC <span className="ed-required">*</span>
+                          </label>
+                          <input
+                            id="cardCvc"
+                            type="text"
+                            placeholder="123"
+                            value={cardCvc}
+                            onChange={(e) => setCardCvc(e.target.value)}
+                            disabled={loading || processingPayment}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="ed-payment-security">
+                        <FaInfoCircle className="ed-info-icon" />
+                        <span>
+                          Your payment is secured with SSL encryption. No card
+                          details are stored on our servers.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="ed-modal-footer">
                   <div className="ed-terms">
                     <input
                       type="checkbox"
                       id="terms"
                       required
-                      disabled={loading}
+                      disabled={loading || processingPayment}
                     />
                     <label htmlFor="terms">
                       I agree to the terms and conditions and privacy policy
@@ -1596,17 +1664,25 @@ const EventDetailsPage = () => {
                       type="button"
                       className="ed-btn secondary"
                       onClick={() => setShowRegistrationModal(false)}
-                      disabled={loading}
+                      disabled={loading || processingPayment}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       className="ed-btn primary wide"
-                      disabled={loading}
+                      disabled={loading || processingPayment}
                     >
-                      {loading ? <FaSpinner className="spin" /> : null}
-                      {loading ? "Processing..." : "Confirm Registration"}
+                      {loading || processingPayment ? (
+                        <FaSpinner className="spin" />
+                      ) : null}
+                      {processingPayment
+                        ? "Processing Payment..."
+                        : loading
+                        ? "Processing..."
+                        : paymentMethod === "online"
+                        ? "Pay €150.00 & Register"
+                        : "Confirm Registration"}
                     </button>
                   </div>
                 </div>
@@ -1884,188 +1960,6 @@ const EventDetailsPage = () => {
                   </div>
                 </form>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* PAYMENT STEP MODAL */}
-      {showPaymentStep && (
-        <div className="ed-modal-backdrop">
-          <div className="ed-modal medium">
-            <button
-              type="button"
-              className="ed-modal-close"
-              onClick={() => {
-                setShowPaymentStep(false);
-                setShowRegistrationModal(true);
-              }}
-              disabled={processingPayment}
-            >
-              ×
-            </button>
-
-            <div className="ed-modal-header">
-              <span className="ed-modal-tag">Secure Payment</span>
-              <h3 className="ed-modal-title">Complete Online Payment</h3>
-              <p className="ed-modal-subtitle">
-                Enter your payment details to complete registration
-              </p>
-            </div>
-
-            <div className="ed-modal-body">
-              {eventRegistrationError && (
-                <div className="ed-message-error">
-                  <FaTimes /> {eventRegistrationError}
-                </div>
-              )}
-
-              {paymentFormError && (
-                <div className="ed-message-error">
-                  <FaTimes /> {paymentFormError}
-                </div>
-              )}
-
-              <div className="ed-payment-summary">
-                <div className="ed-payment-summary-row">
-                  <span className="ed-payment-label">Event:</span>
-                  <span className="ed-payment-value">{event.name}</span>
-                </div>
-                <div className="ed-payment-summary-row">
-                  <span className="ed-payment-label">Participant:</span>
-                  <span className="ed-payment-value">
-                    {inscriptionData?.fullName || currentUser?.name || "N/A"}
-                  </span>
-                </div>
-                <div className="ed-payment-summary-row">
-                  <span className="ed-payment-label">Email:</span>
-                  <span className="ed-payment-value">
-                    {inscriptionData?.email || currentUser?.email || "N/A"}
-                  </span>
-                </div>
-                <div className="ed-payment-summary-row">
-                  <span className="ed-payment-label">Amount:</span>
-                  <span className="ed-payment-value">€150.00</span>
-                </div>
-              </div>
-
-              <div className="ed-card-payment-section">
-                <h4 className="ed-section-title">Payment Details</h4>
-                <div className="ed-card-form">
-                  <div className="ed-form-group">
-                    <label htmlFor="cardHolderName">
-                      Card Holder Name <span className="ed-required">*</span>
-                    </label>
-                    <input
-                      id="cardHolderName"
-                      type="text"
-                      placeholder="John Smith"
-                      value={cardHolderName}
-                      onChange={(e) => setCardHolderName(e.target.value)}
-                      disabled={processingPayment}
-                    />
-                  </div>
-
-                  <div className="ed-form-group">
-                    <label htmlFor="cardNumber">
-                      Card Number <span className="ed-required">*</span>
-                    </label>
-                    <div className="ed-card-input">
-                      <FaRegCreditCard className="ed-card-icon" />
-                      <input
-                        id="cardNumber"
-                        type="text"
-                        placeholder="1234 5678 9012 3456"
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
-                        disabled={processingPayment}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="ed-card-details">
-                    <div className="ed-form-group">
-                      <label htmlFor="cardExpiry">
-                        Expiry Date (MM/YY){" "}
-                        <span className="ed-required">*</span>
-                      </label>
-                      <input
-                        id="cardExpiry"
-                        type="text"
-                        placeholder="MM/YY"
-                        value={cardExpiry}
-                        onChange={(e) => setCardExpiry(e.target.value)}
-                        disabled={processingPayment}
-                      />
-                    </div>
-                    <div className="ed-form-group">
-                      <label htmlFor="cardCvc">
-                        CVC <span className="ed-required">*</span>
-                      </label>
-                      <input
-                        id="cardCvc"
-                        type="text"
-                        placeholder="123"
-                        value={cardCvc}
-                        onChange={(e) => setCardCvc(e.target.value)}
-                        disabled={processingPayment}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="ed-payment-security">
-                    <FaInfoCircle className="ed-info-icon" />
-                    <span>
-                      Your payment is secured with SSL encryption. No card
-                      details are stored on our servers.
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="ed-modal-footer">
-                <div className="ed-terms">
-                  <input
-                    type="checkbox"
-                    id="payment-terms"
-                    required
-                    disabled={processingPayment}
-                  />
-                  <label htmlFor="payment-terms">
-                    I authorize MEDEVENTA to charge my card for the registration
-                    fee
-                  </label>
-                </div>
-                <div className="ed-modal-actions">
-                  <button
-                    type="button"
-                    className="ed-btn secondary"
-                    onClick={() => {
-                      setShowPaymentStep(false);
-                      setShowRegistrationModal(true);
-                    }}
-                    disabled={processingPayment}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    className="ed-btn primary wide"
-                    onClick={handleProcessPayment}
-                    disabled={processingPayment}
-                  >
-                    {processingPayment ? (
-                      <>
-                        <FaSpinner className="spin" /> Processing Payment...
-                      </>
-                    ) : (
-                      <>
-                        <FaRegCreditCard /> Pay €150.00
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
