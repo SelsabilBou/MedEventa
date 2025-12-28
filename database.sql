@@ -28,7 +28,6 @@ CREATE TABLE utilisateur (
     domaine_recherche VARCHAR(255),
     biographie TEXT,
     pays VARCHAR(100),
-<<<<<<< HEAD
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -36,13 +35,11 @@ CREATE TABLE utilisateur (
 -- ============================================
 -- TABLE EVENEMENT
 -- ============================================
-=======
     -- champs ajoutés
     reset_token_hash VARCHAR(255),
     reset_token_expires DATETIME
 );
 
->>>>>>> 474392008d5cf99afa343fff9ca5be470cad575f
 CREATE TABLE evenement (
     id INT PRIMARY KEY AUTO_INCREMENT,
     titre VARCHAR(255) NOT NULL,
