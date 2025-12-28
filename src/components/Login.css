@@ -1,0 +1,273 @@
+/* ===== GLOBAL LAYOUT ===== */
+
+.login-page {
+  min-height: 100vh;
+  background: transparent; /* let global green + dots show */
+  position: relative;
+}
+
+.login-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* back button top-left */
+.login-back-home {
+  position: fixed;
+  top: 18px;
+  left: 22px;
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 20px;
+  border: 1px solid #d0d7de;
+  background: #ffffffcc;
+  cursor: pointer;
+  z-index: 5;
+}
+
+/* ===== LEFT CARD ===== */
+
+.login-card {
+  flex: 0 0 45%;
+  max-width: 520px;
+  padding: 50px 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #ffffff;
+}
+
+/* ===== RIGHT IMAGE ===== */
+
+.login-image-side {
+  flex: 1;
+  background-image: url("../assets/MedEventa.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* ===== TYPOGRAPHY ===== */
+
+.login-title {
+  font-family: "Playfair Display", "Times New Roman", serif;
+  font-size: 42px;
+  color: #0b4c52;
+  margin-bottom: 10px;
+}
+
+.login-subtitle {
+  font-size: 28px;
+  color: #087f89;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.login-text {
+  font-size: 14px;
+  color: #6b7583;
+  margin-bottom: 30px;
+}
+
+/* ===== GOOGLE BUTTON ===== */
+
+.login-google-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px solid #d0d7de;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-google-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-google-icon {
+  font-size: 18px;
+}
+
+/* separator */
+
+.login-separator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 10px;
+}
+
+.login-separator .line {
+  flex: 1;
+  height: 1px;
+  background: #e1e5eb;
+}
+
+.login-separator .or {
+  font-size: 12px;
+  color: #8891a0;
+}
+
+/* ===== FORM ===== */
+
+.login-form {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a2332;
+  margin-bottom: 4px;
+}
+
+.login-input {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccd4e0;
+  font-size: 14px;
+}
+
+.login-input:focus {
+  outline: none;
+  border-color: #0ea5a8;
+  box-shadow: 0 0 0 2px rgba(14, 165, 168, 0.15);
+}
+
+/* password row (label + forgot) */
+
+.login-password-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.login-forgot-btn {
+  border: none;
+  background: none;
+  font-size: 12px;
+  color: #0b8090;
+  cursor: pointer;
+}
+
+/* eye icon */
+
+.password-wrapper {
+  position: relative;
+}
+
+.password-eye-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #7b8492;
+}
+
+/* remember-me */
+
+.login-options {
+  margin-top: 4px;
+}
+
+.remember-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #505a69;
+}
+
+/* submit button */
+
+.login-submit-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: none;
+  background: #0b8a8f;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+/* error message */
+
+.login-error {
+  margin-top: 6px;
+  margin-bottom: -4px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+/* footer text */
+
+.login-footer-text {
+  margin-top: 16px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.login-link-btn {
+  border: none;
+  background: #ff9f1c;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.login-copy {
+  margin-top: 24px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 900px) {
+  .login-layout {
+    flex-direction: column;
+  }
+
+  .login-image-side {
+    display: none;
+  }
+
+  .login-card {
+    max-width: 100%;
+    width: 100%;
+    padding: 40px 24px;
+  }
+
+  .login-back-home {
+    position: absolute;
+  }
+}

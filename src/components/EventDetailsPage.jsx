@@ -1,0 +1,2112 @@
+// src/components/EventDetailsPage.jsx
+import React, { useMemo, useRef, useState, useEffect } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  FaCalendarAlt,
+  FaUsers,
+  FaChalkboardTeacher,
+  FaUserTie,
+  FaMapMarkerAlt,
+  FaDownload,
+  FaRegCreditCard,
+  FaUserCircle,
+  FaInfoCircle,
+  FaUserFriends,
+  FaUserGraduate,
+  FaClipboard,
+  FaMicrophone,
+  FaBuilding,
+  FaGlobe,
+  FaPhone,
+  FaEnvelope,
+  FaStar,
+  FaArrowLeft,
+  FaHome,
+  FaPaperPlane,
+  FaFilePdf,
+  FaUpload,
+  FaCheck,
+  FaTimes,
+  FaPen,
+  FaBook,
+  FaClock,
+  FaLayerGroup,
+  FaSpinner,
+  FaFilter,
+  FaQuestionCircle,
+  FaThumbsUp,
+  FaThumbsDown,
+  FaTrash,
+} from "react-icons/fa";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import axios from "axios";
+import "./EventDetailsPage.css";
+// Import section components
+import EventInfoSection from "./EventDetailsPage/EventInfoSection";
+import EventCommitteeSection from "./EventDetailsPage/EventCommitteeSection";
+import EventGuestsSection from "./EventDetailsPage/EventGuestsSection";
+import EventSummarySection from "./EventDetailsPage/EventSummarySection";
+import EventProgramSection from "./EventDetailsPage/EventProgramSection";
+import EventCallSection from "./EventDetailsPage/EventCallSection";
+import EventQASection from "./EventDetailsPage/EventQASection";
+
+const EventDetailsPage = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const event = location.state?.event;
+
+  const [activeDayIndex, setActiveDayIndex] = useState(0);
+  const [activeSection, setActiveSection] = useState("info");
+  const [showSubmissionForm, setShowSubmissionForm] = useState(false);
+  const [submissionSuccess, setSubmissionSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Workshop and Session Registration States
+  const [showWorkshopModal, setShowWorkshopModal] = useState(false);
+  const [showSessionModal, setShowSessionModal] = useState(false);
+  const [selectedWorkshop, setSelectedWorkshop] = useState(null);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [registrationLoading, setRegistrationLoading] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [workshopError, setWorkshopError] = useState("");
+  const [eventRegistrationError, setEventRegistrationError] = useState("");
+  const [submissionError, setSubmissionError] = useState("");
+  const [backendWorkshops, setBackendWorkshops] = useState([]);
+
+  // Event Registration Modal
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("onsite");
+  const [inscriptionData, setInscriptionData] = useState(null);
+  const [badgeReady, setBadgeReady] = useState(false);
+  const [showPaymentStep, setShowPaymentStep] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
+
+  // Program Filter State
+  const [programFilter, setProgramFilter] = useState("all"); // "all", "conferences", "workshops", "sessions"
+
+  // Form states
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [organisation, setOrganisation] = useState("");
+
+  // Payment form states
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
+  const [cardHolderName, setCardHolderName] = useState("");
+  const [paymentFormError, setPaymentFormError] = useState("");
+
+  // Workshop/Session Registration Form
+  const [workshopSessionForm, setWorkshopSessionForm] = useState({
+    notes: "",
+    dietaryRequirements: "",
+    specialNeeds: "",
+  });
+
+  // Submission form state
+  const [submissionForm, setSubmissionForm] = useState({
+    title: "",
+    abstract: "",
+    authors: "",
+    keywords: "",
+    correspondingAuthor: "",
+    email: "",
+    phone: "",
+    institution: "",
+    presentationType: "oral",
+    file: null,
+    fileName: "",
+    termsAccepted: false,
+  });
+
+  // Q&A States
+  const [questions, setQuestions] = useState([]);
+  const [questionText, setQuestionText] = useState("");
+  const [questionSort, setQuestionSort] = useState("popular"); // "popular" or "recent"
+  const [questionLikes, setQuestionLikes] = useState({}); // Track which questions user has liked
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [questionError, setQuestionError] = useState("");
+  const [questionSuccess, setQuestionSuccess] = useState(false);
+  const [submittingQuestion, setSubmittingQuestion] = useState(false);
+  const [questionToDelete, setQuestionToDelete] = useState(null); // For delete confirmation
+
+  const badgeRef = useRef(null);
+
+  // Get current user from localStorage
+  const currentUser = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("user");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Auto-fill form with user data if available
+  useEffect(() => {
+    if (currentUser) {
+      setFullName(currentUser.name || "");
+      setEmail(currentUser.email || "");
+      setOrganisation(currentUser.organisation || "");
+      setCardHolderName(currentUser.name || "");
+    }
+  }, [currentUser]);
+
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  // Fetch questions from backend
+  const fetchQuestions = React.useCallback(async () => {
+    if (!id) return;
+    try {
+      setLoadingQuestions(true);
+      const response = await axios.get(`/api/events/${id}/questions`);
+      if (response.data && response.data.questions) {
+        setQuestions(response.data.questions);
+      }
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+    } finally {
+      setLoadingQuestions(false);
+    }
+  }, [id]);
+
+  // Fetch questions when Q&A section is active
+  useEffect(() => {
+    if (activeSection === "qa" && id) {
+      fetchQuestions();
+    }
+  }, [activeSection, id, fetchQuestions]);
+
+  // Fetch workshops from backend
+  useEffect(() => {
+    const fetchWorkshops = async () => {
+      if (!id) return;
+
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get(`/api/events/${id}/workshops`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.data && Array.isArray(response.data)) {
+          // Map backend workshop structure to frontend format
+          const mappedWorkshops = response.data.map((w) => ({
+            id: w.id,
+            _id: w.id.toString(),
+            title: w.titre || w.title,
+            trainer:
+              w.responsable_nom && w.responsable_prenom
+                ? `${w.responsable_prenom} ${w.responsable_nom}`
+                : w.trainer || "TBA",
+            time: w.date
+              ? new Date(w.date).toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                })
+              : "TBA",
+            room: w.room || "TBA",
+            day: w.date
+              ? `Day ${
+                  Math.floor(
+                    (new Date(w.date) -
+                      new Date(event?.startDate || Date.now())) /
+                      (1000 * 60 * 60 * 24)
+                  ) + 1
+                }`
+              : "Day 1",
+            capacity: w.nb_places || 0,
+            registeredCount: w.registeredCount || 0,
+            level: w.level || "Intermediate",
+            description: w.description || "",
+          }));
+          setBackendWorkshops(mappedWorkshops);
+        }
+      } catch (error) {
+        console.error("Error fetching workshops:", error);
+        // If fetch fails, continue with demo data (fallback)
+        setBackendWorkshops([]);
+      }
+    };
+
+    fetchWorkshops();
+  }, [id, event?.startDate]);
+
+  // Submit a question
+  const handleSubmitQuestion = async (e) => {
+    e.preventDefault();
+    setQuestionError("");
+    setQuestionSuccess(false);
+
+    if (!currentUser) {
+      setQuestionError("Please log in to ask a question");
+      return;
+    }
+
+    if (!questionText.trim()) {
+      setQuestionError("Please enter your question");
+      return;
+    }
+
+    if (questionText.length > 500) {
+      setQuestionError("Question must be 500 characters or less");
+      return;
+    }
+
+    try {
+      setSubmittingQuestion(true);
+      const token = localStorage.getItem("token");
+      const response = await axios.post(
+        `/api/events/${id}/questions/submit`,
+        { contenu: questionText.trim() },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.status === 201) {
+        setQuestionText("");
+        setQuestionSuccess(true);
+        setTimeout(() => setQuestionSuccess(false), 3000);
+        await fetchQuestions(); // Refresh questions
+      }
+    } catch (error) {
+      console.error("Error submitting question:", error);
+      const errorMsg =
+        error.response?.data?.message ||
+        error.response?.data?.errors?.[0]?.msg ||
+        "Failed to submit question. Please try again.";
+      setQuestionError(errorMsg);
+    } finally {
+      setSubmittingQuestion(false);
+    }
+  };
+
+  // Like a question
+  const handleLikeQuestion = async (questionId) => {
+    if (!currentUser) {
+      setQuestionError("Please log in to like questions");
+      setTimeout(() => setQuestionError(""), 3000);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.post(
+        `/api/questions/${questionId}/like`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        // Update local state
+        setQuestions((prev) =>
+          prev.map((q) =>
+            q.id === questionId
+              ? {
+                  ...q,
+                  likes: response.data.totals?.likes || (q.likes || 0) + 1,
+                }
+              : q
+          )
+        );
+        setQuestionLikes((prev) => ({
+          ...prev,
+          [questionId]: !prev[questionId],
+        }));
+      }
+    } catch (error) {
+      console.error("Error liking question:", error);
+      // Silently fail for likes to not interrupt UX
+    }
+  };
+
+  // Delete a question (only by author)
+  const confirmDeleteQuestion = (questionId) => {
+    setQuestionToDelete(questionId);
+  };
+
+  const handleDeleteQuestion = async () => {
+    if (!questionToDelete) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`/api/questions/${questionToDelete}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setQuestionToDelete(null);
+      await fetchQuestions(); // Refresh questions
+    } catch (error) {
+      console.error("Error deleting question:", error);
+      setQuestionError("Failed to delete question. Please try again.");
+      setTimeout(() => setQuestionError(""), 3000);
+      setQuestionToDelete(null);
+    }
+  };
+
+  // Sort questions based on sort type
+  const sortedQuestions = useMemo(() => {
+    const sorted = [...questions];
+    if (questionSort === "popular") {
+      return sorted.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+    } else {
+      // Recent - sort by id (assuming higher id = more recent)
+      return sorted.sort((a, b) => b.id - a.id);
+    }
+  }, [questions, questionSort]);
+
+  if (!event) {
+    return (
+      <div className="ed-page">
+        <div className="ed-shell">
+          <div className="ed-nav">
+            <button
+              className="ed-back-btn"
+              type="button"
+              onClick={() => navigate("/events")}
+            >
+              <FaArrowLeft /> Back to events
+            </button>
+          </div>
+          <div className="ed-empty">
+            <h1 className="ed-empty-title">Event not found</h1>
+            <p className="ed-empty-text">
+              No event data was provided for id {id}. Please return to the event
+              list.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { startDate, endDate } = event;
+
+  // Demo data for missing sections
+  const eventInfo = event.info || {
+    title: event.name,
+    description: event.description,
+    dates: `${startDate} - ${endDate}`,
+    location: event.location || "Paris Convention Center",
+    address: "1 Avenue de la Convention, 75015 Paris, France",
+    website: "www.medeventa-conference.com",
+    contactEmail: "contact@medeventa.com",
+    contactPhone: "+33 1 23 45 67 89",
+    capacity: "500 participants",
+    language: "French & English",
+    accreditation: "CME credits available",
+  };
+
+  // Call for Communications data
+  const callForPapers = {
+    title: "Call for Communications",
+    deadline: "March 15, 2024",
+    notificationDate: "April 15, 2024",
+    guidelines: [
+      "Abstracts must be submitted in English or French",
+      "Maximum 300 words for abstract",
+      "Include 3-5 keywords",
+      "Specify presentation preference (Oral, Poster, Workshop)",
+      "All submissions will undergo peer review",
+      "Accepted abstracts will be published in the conference proceedings",
+    ],
+    topics: [
+      "Clinical Research and Trials",
+      "Medical Education and Training",
+      "Healthcare Technology and Innovation",
+      "Public Health and Epidemiology",
+      "Medical Ethics and Law",
+      "Interdisciplinary Approaches in Medicine",
+    ],
+    contact: {
+      name: "Scientific Committee",
+      email: "papers@medeventa.com",
+      phone: "+33 1 23 45 67 90",
+    },
+  };
+
+  const committeeMembers = event.committee || [
+    {
+      id: 1,
+      name: "Prof. Marie Laurent",
+      role: "Committee President",
+      organisation: "University Hospital of Paris",
+      specialty: "Neurology",
+    },
+    {
+      id: 2,
+      name: "Dr. Jean-Marc Dubois",
+      role: "Scientific Coordinator",
+      organisation: "Medical Research Institute",
+      specialty: "Cardiology",
+    },
+    {
+      id: 3,
+      name: "Dr. Sophie Bernard",
+      role: "Educational Manager",
+      organisation: "Lyon Medical School",
+      specialty: "Pediatrics",
+    },
+    {
+      id: 4,
+      name: "Prof. Thomas Moreau",
+      role: "Committee Member",
+      organisation: "Bordeaux University Hospital",
+      specialty: "Surgery",
+    },
+  ];
+
+  const guests = event.guests || [
+    {
+      id: 1,
+      name: "Prof. Michael Johnson",
+      title: "Keynote Speaker",
+      organisation: "Harvard Medical School",
+      country: "USA",
+      talkTitle: "Future of Personalized Medicine",
+    },
+    {
+      id: 2,
+      name: "Dr. Elena Rossi",
+      title: "Invited Professor",
+      organisation: "University of Milan",
+      country: "Italy",
+      talkTitle: "AI in Diagnostic Imaging",
+    },
+    {
+      id: 3,
+      name: "Dr. Kenji Tanaka",
+      title: "Guest Researcher",
+      organisation: "Tokyo University Hospital",
+      country: "Japan",
+      talkTitle: "Advances in Robotic Surgery",
+    },
+  ];
+
+  const summaryContent = event.summary || {
+    abstract: `The MEDEVENTA 2024 Congress brings together healthcare professionals, researchers, and innovators from around the world to share the latest advances in medicine. This edition focuses on the digital transformation of healthcare, artificial intelligence applied to diagnostics, and new personalized therapies.
+
+    The program includes: plenary conferences, practical workshops, poster sessions, and round tables with international experts. An essential event to stay at the forefront of medical innovation.`,
+    objectives: [
+      "Share the latest scientific and clinical advances",
+      "Facilitate exchanges between healthcare professionals",
+      "Present technological innovations in medicine",
+      "Develop international collaboration networks",
+      "Provide continuing medical education credits",
+    ],
+    targetAudience: [
+      "Doctors of all specialties",
+      "Surgeons",
+      "Medical science researchers",
+      "Medical students",
+      "Healthcare industry professionals",
+      "Healthcare facility managers",
+    ],
+  };
+
+  // Enhanced program data with registration functionality
+  const conferences = event.conferences || [
+    {
+      id: 1,
+      title: "The Post‑Cloud Era in Healthcare",
+      speaker: "Dr. Aris Thorne",
+      time: "10:00 AM - 11:30 AM",
+      room: "Emerald Hall",
+      day: "Day 1",
+      type: "plenary",
+      description:
+        "Discussion on cloud computing's impact on medical data management and patient care.",
+    },
+    {
+      id: 2,
+      title: "Scaling Healthcare Systems to 10M Users",
+      speaker: "Marcus Chen",
+      time: "03:00 PM - 04:30 PM",
+      room: "Emerald Hall",
+      day: "Day 1",
+      type: "keynote",
+      description:
+        "Architectural considerations for large-scale healthcare platforms.",
+    },
+    {
+      id: 3,
+      title: "AI and Machine Learning in Diagnostics",
+      speaker: "Dr. Elena Rossi",
+      time: "09:00 AM - 10:30 AM",
+      room: "Sapphire Room",
+      day: "Day 2",
+      type: "plenary",
+      description: "Latest developments in AI-powered diagnostic tools.",
+    },
+  ];
+
+  // Use backend workshops if available, otherwise fall back to demo data
+  const workshops =
+    backendWorkshops.length > 0
+      ? backendWorkshops
+      : event.workshops || [
+          {
+            id: 1,
+            _id: "workshop1",
+            title: "Design as a Competitive Edge in Medical Devices",
+            trainer: "Elena Rodriguez",
+            time: "11:30 AM - 01:00 PM",
+            room: "Studio B",
+            day: "Day 1",
+            capacity: 30,
+            registeredCount: 15,
+            level: "Intermediate",
+            description:
+              "Hands-on workshop focusing on user-centered design in medical device development.",
+          },
+          {
+            id: 2,
+            _id: "workshop2",
+            title: "Hands-on Surgical Robotics",
+            trainer: "Dr. Kenji Tanaka",
+            time: "02:00 PM - 05:00 PM",
+            room: "Lab 3",
+            day: "Day 2",
+            capacity: 15,
+            registeredCount: 8,
+            level: "Advanced",
+            description:
+              "Practical session with state-of-the-art surgical robotics equipment.",
+          },
+          {
+            id: 3,
+            _id: "workshop3",
+            title: "Medical Data Visualization Techniques",
+            trainer: "Dr. Sarah Johnson",
+            time: "09:00 AM - 12:00 PM",
+            room: "Studio A",
+            day: "Day 1",
+            capacity: 25,
+            registeredCount: 20,
+            level: "Beginner",
+            description:
+              "Learn how to effectively visualize complex medical data for clinical decision making.",
+          },
+        ];
+
+  const sessions = event.sessions || [
+    {
+      id: 1,
+      _id: "session1",
+      title: "Poster session: Neuroscience Advances",
+      chair: "Dr. Sara N.",
+      time: "09:00 AM - 11:00 AM",
+      room: "Poster Hall",
+      day: "Day 2",
+      type: "poster",
+      count: "45 posters",
+      capacity: 100,
+      registeredCount: 65,
+      description:
+        "Interactive poster session showcasing the latest neuroscience research.",
+    },
+    {
+      id: 2,
+      _id: "session2",
+      title: "Roundtable: Ethics in Digital Health",
+      chair: "Prof. Marie Laurent",
+      time: "04:00 PM - 05:30 PM",
+      room: "Conference Room A",
+      day: "Day 1",
+      type: "roundtable",
+      participants: "8 experts",
+      capacity: 50,
+      registeredCount: 32,
+      description:
+        "Expert discussion on ethical considerations in digital health implementation.",
+    },
+    {
+      id: 3,
+      _id: "session3",
+      title: "Clinical Trials Workshop",
+      chair: "Dr. Robert Chen",
+      time: "02:00 PM - 03:30 PM",
+      room: "Conference Room B",
+      day: "Day 2",
+      type: "workshop",
+      capacity: 40,
+      registeredCount: 28,
+      description:
+        "Practical guidance on designing and conducting clinical trials.",
+    },
+  ];
+
+  const speakers = event.speakers || [
+    {
+      id: 1,
+      name: "Dr. Aris Thorne",
+      role: "Principal Researcher",
+      organisation: "Quantum Dynamics",
+      bio: "Pioneer in quantum computing and distributed architecture systems for healthcare.",
+      country: "USA",
+    },
+    {
+      id: 2,
+      name: "Elena Rodriguez",
+      role: "Head of UX",
+      organisation: "Creative Studio",
+      bio: "Focuses on human‑centric AI design and ethical interfaces for medical applications.",
+      country: "Spain",
+    },
+    {
+      id: 3,
+      name: "Marcus Chen",
+      role: "VP Engineering",
+      organisation: "CloudScale",
+      bio: "Architecting the backbone of global serverless infrastructures for healthcare systems.",
+      country: "Singapore",
+    },
+    {
+      id: 4,
+      name: "Prof. Michael Johnson",
+      role: "Department Head",
+      organisation: "Harvard Medical School",
+      bio: "Leading researcher in personalized medicine and genomic data analysis.",
+      country: "USA",
+    },
+  ];
+
+  const days = Array.from(
+    new Set([
+      ...conferences.map((c) => c.day),
+      ...workshops.map((w) => w.day),
+      ...sessions.map((s) => s.day),
+    ])
+  );
+  const activeDay = days[activeDayIndex] || days[0];
+
+  const paymentStatus =
+    inscriptionData?.paymentStatus ||
+    (paymentMethod === "onsite" ? "a_payer" : "a_payer");
+
+  const badgeCode = `MEDE-${paymentStatus === "a_payer" ? "NP" : "OK"}-${
+    (inscriptionData?.fullName || currentUser?.name || "G")[0] || "G"
+  }`.toUpperCase();
+
+  // Handle submission form changes
+  const handleSubmissionChange = (e) => {
+    const { name, value, type, checked, files } = e.target;
+
+    if (type === "file") {
+      const file = files[0];
+      setSubmissionForm((prev) => ({
+        ...prev,
+        file: file,
+        fileName: file ? file.name : "",
+      }));
+    } else if (type === "checkbox") {
+      setSubmissionForm((prev) => ({
+        ...prev,
+        [name]: checked,
+      }));
+    } else {
+      setSubmissionForm((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
+  };
+
+  // Handle submission form submission
+  const handleSubmitSubmission = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+
+      // Map form fields to backend expected field names
+      formData.append("titre", submissionForm.title);
+      formData.append("resume", submissionForm.abstract);
+      formData.append("type", submissionForm.presentationType);
+      // Add other fields if needed by backend
+      if (submissionForm.authors)
+        formData.append("authors", submissionForm.authors);
+      if (submissionForm.keywords)
+        formData.append("keywords", submissionForm.keywords);
+
+      if (submissionForm.file) {
+        formData.append("resumePdf", submissionForm.file);
+      }
+
+      // eventId is in the URL, not needed in body
+
+      const response = await axios.post(
+        `/api/events/${id}/submissions`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      if (response.status === 201 || response.data.message) {
+        setSubmissionSuccess(true);
+        setSubmissionError("");
+
+        // Reset form
+        setSubmissionForm({
+          title: "",
+          abstract: "",
+          authors: "",
+          keywords: "",
+          correspondingAuthor: "",
+          email: "",
+          phone: "",
+          institution: "",
+          presentationType: "oral",
+          file: null,
+          fileName: "",
+          termsAccepted: false,
+        });
+
+        setTimeout(() => {
+          setSubmissionSuccess(false);
+          setShowSubmissionForm(false);
+        }, 3000);
+      }
+    } catch (error) {
+      console.error("Submission error:", error);
+      setSubmissionError(
+        error.response?.data?.message ||
+          "Failed to submit abstract. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle workshop registration
+  const handleWorkshopRegister = (workshop) => {
+    if (currentUser?.role !== "participant") {
+      setWorkshopError("Only participants can register for workshops.");
+      setTimeout(() => setWorkshopError(""), 5000);
+      return;
+    }
+    setSelectedWorkshop(workshop);
+    setShowWorkshopModal(true);
+    setWorkshopError("");
+  };
+
+  // Handle session registration
+  const handleSessionRegister = (session) => {
+    if (currentUser?.role !== "participant") {
+      setWorkshopError("Only participants can register for sessions.");
+      setTimeout(() => setWorkshopError(""), 5000);
+      return;
+    }
+    setSelectedSession(session);
+    setShowSessionModal(true);
+    setWorkshopError("");
+  };
+
+  // Submit workshop registration
+  const handleSubmitWorkshopRegistration = async (e) => {
+    e.preventDefault();
+    setRegistrationLoading(true);
+    setWorkshopError("");
+
+    try {
+      const token = localStorage.getItem("token");
+
+      // Backend expects an integer workshopId - use 'id' field (numeric)
+      const workshopId = selectedWorkshop.id;
+
+      if (!workshopId || typeof workshopId !== "number") {
+        setWorkshopError(
+          "Invalid workshop ID. Cannot register for this workshop. Please make sure you are registering for a workshop from the backend."
+        );
+        setRegistrationLoading(false);
+        return;
+      }
+
+      // Backend doesn't expect a body, just the workshopId in URL
+      const response = await axios.post(
+        `/api/events/workshops/${workshopId}/register`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.status === 201) {
+        setRegistrationSuccess(true);
+
+        // Trigger dashboard update event with registration data
+        const registrationData = {
+          id: Date.now(),
+          type: "Workshop",
+          title: selectedWorkshop.title,
+          parent: event.name,
+          place: selectedWorkshop.room || event.location || "",
+          date:
+            selectedWorkshop.day ||
+            event.startDate ||
+            new Date().toLocaleDateString(),
+          status: "confirmed",
+          paymentStatus: "a_payer",
+        };
+
+        window.dispatchEvent(
+          new CustomEvent("registration-updated", {
+            detail: registrationData,
+          })
+        );
+
+        setTimeout(() => {
+          setRegistrationSuccess(false);
+          setShowWorkshopModal(false);
+          setWorkshopSessionForm({
+            notes: "",
+            dietaryRequirements: "",
+            specialNeeds: "",
+          });
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("Workshop registration error:", error);
+      let errorMsg = "Failed to register for workshop. Please try again.";
+
+      if (error.response) {
+        // Backend returned an error response
+        errorMsg =
+          error.response.data?.message ||
+          error.response.data?.error ||
+          errorMsg;
+
+        // Handle specific status codes with user-friendly messages
+        if (error.response.status === 401) {
+          errorMsg = "Please log in to register for workshops.";
+        } else if (error.response.status === 403) {
+          errorMsg =
+            error.response.data?.message ||
+            "You don't have permission to register for workshops.";
+        } else if (error.response.status === 404) {
+          errorMsg = error.response.data?.message || "Workshop not found.";
+        } else if (error.response.status === 409) {
+          errorMsg =
+            error.response.data?.message ||
+            "You are already registered for this workshop.";
+        } else if (error.response.status === 400) {
+          errorMsg =
+            error.response.data?.message || "Invalid registration request.";
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMsg =
+          "Unable to connect to the server. Please check your internet connection.";
+      }
+
+      setWorkshopError(errorMsg);
+    } finally {
+      setRegistrationLoading(false);
+    }
+  };
+
+  // Submit session registration
+  const handleSubmitSessionRegistration = async (e) => {
+    e.preventDefault();
+    // Note: Session registration endpoint is not available in the backend
+    // Sessions are automatically assigned to users when they register for events
+    setWorkshopError(
+      "Session registration is not available. Sessions are automatically included when you register for the event."
+    );
+    setTimeout(() => {
+      setShowSessionModal(false);
+      setWorkshopError("");
+      setWorkshopSessionForm({
+        notes: "",
+        dietaryRequirements: "",
+        specialNeeds: "",
+      });
+    }, 3000);
+  };
+
+  // Handle workshop/session form changes
+  const handleWorkshopSessionChange = (e) => {
+    const { name, value } = e.target;
+    setWorkshopSessionForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleConfirmRegistration = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setEventRegistrationError("");
+
+    try {
+      const token = localStorage.getItem("token");
+
+      // Register the user for the event
+      const response = await axios.post(
+        `/api/inscriptions/register/${id}`,
+        { profil: "participant" }, // Backend expects profil field
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.status === 201) {
+        const inscriptionId = response.data.inscriptionId;
+
+        // If online payment, show payment step
+        if (paymentMethod === "online") {
+          setInscriptionData({
+            ...response.data,
+            inscriptionId,
+            fullName,
+            email,
+            organisation,
+          });
+          setShowPaymentStep(true);
+          setLoading(false);
+          return;
+        }
+
+        // For onsite payment, complete registration
+        setInscriptionData({
+          ...response.data,
+          inscriptionId,
+          fullName,
+          email,
+          organisation,
+        });
+        setBadgeReady(true);
+        setShowRegistrationModal(false);
+        setEventRegistrationError("");
+
+        // Trigger dashboard update with registration data
+        const dashboardData = {
+          id: Date.now(),
+          type: "Event",
+          title: event.name,
+          parent: "",
+          place: event.location || "",
+          date: event.startDate || new Date().toLocaleDateString(),
+          status: "confirmed",
+          paymentStatus: "a_payer",
+        };
+
+        window.dispatchEvent(
+          new CustomEvent("registration-updated", {
+            detail: dashboardData,
+          })
+        );
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
+      setEventRegistrationError(
+        error.response?.data?.message ||
+          "Registration failed. Please try again."
+      );
+      setLoading(false);
+    }
+  };
+
+  // Validate payment form
+  const validatePaymentForm = () => {
+    if (!cardNumber.trim()) {
+      setPaymentFormError("Card number is required");
+      return false;
+    }
+    if (!cardExpiry.trim()) {
+      setPaymentFormError("Expiry date is required");
+      return false;
+    }
+    if (!cardCvc.trim()) {
+      setPaymentFormError("CVC is required");
+      return false;
+    }
+    if (!cardHolderName.trim()) {
+      setPaymentFormError("Card holder name is required");
+      return false;
+    }
+
+    // Simple validation for card number (16 digits)
+    const cardNumberClean = cardNumber.replace(/\s/g, "");
+    if (!/^\d{16}$/.test(cardNumberClean)) {
+      setPaymentFormError("Card number must be 16 digits");
+      return false;
+    }
+
+    // Simple validation for expiry date (MM/YY)
+    if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
+      setPaymentFormError("Expiry date must be in MM/YY format");
+      return false;
+    }
+
+    // Simple validation for CVC (3 digits)
+    if (!/^\d{3}$/.test(cardCvc)) {
+      setPaymentFormError("CVC must be 3 digits");
+      return false;
+    }
+
+    setPaymentFormError("");
+    return true;
+  };
+
+  // Handle online payment processing
+  const handleProcessPayment = async () => {
+    if (!inscriptionData?.inscriptionId) {
+      setEventRegistrationError(
+        "Registration data not found. Please try again."
+      );
+      return;
+    }
+
+    // Validate payment form
+    if (!validatePaymentForm()) {
+      return;
+    }
+
+    setProcessingPayment(true);
+    setEventRegistrationError("");
+
+    try {
+      const token = localStorage.getItem("token");
+
+      // Simulate payment processing delay
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Update payment status using the correct endpoint
+      const updateResponse = await axios.put(
+        `/api/inscriptions/${inscriptionData.inscriptionId}/payment-status`,
+        { status: "payeenligne" }, // Backend expects status field
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (updateResponse.status === 200) {
+        // Payment successful
+        setBadgeReady(true);
+        setShowPaymentStep(false);
+        setShowRegistrationModal(false);
+        setProcessingPayment(false);
+
+        // Clear payment form
+        setCardNumber("");
+        setCardExpiry("");
+        setCardCvc("");
+
+        // Trigger dashboard update with registration data
+        const dashboardData = {
+          id: Date.now(),
+          type: "Event",
+          title: event.name,
+          parent: "",
+          place: event.location || "",
+          date: event.startDate || new Date().toLocaleDateString(),
+          status: "confirmed",
+          paymentStatus: "payeenligne",
+        };
+
+        window.dispatchEvent(
+          new CustomEvent("registration-updated", {
+            detail: dashboardData,
+          })
+        );
+      }
+    } catch (error) {
+      console.error("Payment processing error:", error);
+      setEventRegistrationError(
+        error.response?.data?.message ||
+          "Payment processing failed. Please try again or contact support."
+      );
+      setProcessingPayment(false);
+    }
+  };
+
+  const handleDownloadBadge = async () => {
+    if (!badgeRef.current) return;
+
+    const canvas = await html2canvas(badgeRef.current);
+    const imgData = canvas.toDataURL("image/png");
+
+    const pdf = new jsPDF("p", "mm", "a4");
+    const width = pdf.internal.pageSize.getWidth();
+    const height = (canvas.height * width) / canvas.width;
+
+    pdf.addImage(imgData, "PNG", 0, 20, width, height);
+    pdf.save("badge.pdf");
+  };
+
+  // Section navigation
+  const sections = [
+    { id: "info", label: "Info", icon: <FaInfoCircle /> },
+    { id: "committee", label: "Committee", icon: <FaUserFriends /> },
+    { id: "guests", label: "Guests", icon: <FaUserGraduate /> },
+    { id: "summary", label: "Summary", icon: <FaClipboard /> },
+    { id: "program", label: "Program", icon: <FaCalendarAlt /> },
+    { id: "call", label: "Call for Communications", icon: <FaPaperPlane /> },
+    { id: "qa", label: "Q&A", icon: <FaQuestionCircle /> },
+  ];
+
+  // Filtered data based on program filter
+  const filteredConferences = conferences.filter((c) => c.day === activeDay);
+  const filteredWorkshops = workshops.filter((w) => w.day === activeDay);
+  const filteredSessions = sessions.filter((s) => s.day === activeDay);
+
+  // Determine what to show based on filter
+  const showConferences =
+    programFilter === "all" || programFilter === "conferences";
+  const showWorkshops =
+    programFilter === "all" || programFilter === "workshops";
+  const showSessions = programFilter === "all" || programFilter === "sessions";
+
+  // Render section content based on active section
+  const renderSectionContent = () => {
+    switch (activeSection) {
+      case "info":
+        return <EventInfoSection eventInfo={eventInfo} />;
+
+      case "committee":
+        return <EventCommitteeSection committeeMembers={committeeMembers} />;
+
+      case "guests":
+        return <EventGuestsSection guests={guests} />;
+
+      case "summary":
+        return <EventSummarySection summaryContent={summaryContent} />;
+
+      case "program":
+        return (
+          <EventProgramSection
+            days={days}
+            activeDayIndex={activeDayIndex}
+            setActiveDayIndex={setActiveDayIndex}
+            programFilter={programFilter}
+            setProgramFilter={setProgramFilter}
+            filteredConferences={filteredConferences}
+            filteredWorkshops={filteredWorkshops}
+            filteredSessions={filteredSessions}
+            showConferences={showConferences}
+            showWorkshops={showWorkshops}
+            showSessions={showSessions}
+            currentUser={currentUser}
+            handleWorkshopRegister={handleWorkshopRegister}
+            handleSessionRegister={handleSessionRegister}
+          />
+        );
+
+      case "qa":
+        return (
+          <EventQASection
+            currentUser={currentUser}
+            questionText={questionText}
+            setQuestionText={setQuestionText}
+            questionError={questionError}
+            setQuestionError={setQuestionError}
+            questionSuccess={questionSuccess}
+            submittingQuestion={submittingQuestion}
+            handleSubmitQuestion={handleSubmitQuestion}
+            questionSort={questionSort}
+            setQuestionSort={setQuestionSort}
+            loadingQuestions={loadingQuestions}
+            sortedQuestions={sortedQuestions}
+            questionLikes={questionLikes}
+            handleLikeQuestion={handleLikeQuestion}
+            confirmDeleteQuestion={confirmDeleteQuestion}
+          />
+        );
+
+      case "call":
+        return (
+          <EventCallSection
+            callForPapers={callForPapers}
+            showSubmissionForm={showSubmissionForm}
+            setShowSubmissionForm={setShowSubmissionForm}
+            submissionSuccess={submissionSuccess}
+            submissionError={submissionError}
+            submissionForm={submissionForm}
+            handleSubmissionChange={handleSubmissionChange}
+            handleSubmitSubmission={handleSubmitSubmission}
+            loading={loading}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="ed-page">
+      <div className="ed-shell">
+        {/* TOP NAV */}
+        <div className="ed-nav">
+          <button
+            className="ed-back-home-btn"
+            type="button"
+            onClick={() => navigate("/")}
+          >
+            <FaHome /> Back to Home
+          </button>
+
+          <div className="ed-logo">
+            <div className="ed-logo-icon">NS</div>
+            <span className="ed-logo-text">{event.name}</span>
+          </div>
+
+          <button
+            type="button"
+            className="ed-nav-cta"
+            onClick={() => setShowRegistrationModal(true)}
+          >
+            Register for Event
+          </button>
+        </div>
+
+        {/* HERO */}
+        <header className="ed-hero">
+          <div className="ed-hero-main">
+            <span className="ed-hero-tag">
+              {event.thematique || event.category || "Scientific event"}
+            </span>
+            <h1 className="ed-hero-title">{event.name}</h1>
+            <p className="ed-hero-subtitle">{event.description}</p>
+
+            <div className="ed-hero-meta-row">
+              <div className="ed-hero-meta-card">
+                <div className="ed-meta-label">Start date</div>
+                <div className="ed-meta-value">
+                  <FaCalendarAlt className="ed-meta-icon" />
+                  {startDate}
+                </div>
+              </div>
+              <div className="ed-hero-meta-card">
+                <div className="ed-meta-label">End date</div>
+                <div className="ed-meta-value">
+                  <FaCalendarAlt className="ed-meta-icon" />
+                  {endDate}
+                </div>
+              </div>
+              {event.location && (
+                <div className="ed-hero-meta-card">
+                  <div className="ed-meta-label">Location</div>
+                  <div className="ed-meta-value">
+                    <FaMapMarkerAlt className="ed-meta-icon" />
+                    {event.location}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {badgeReady && (
+              <div className="ed-hero-badge-hint">
+                Your MEDEVENTA badge is ready. Use the button below to download
+                it.
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* MAIN CONTENT */}
+        <main className="ed-main">
+          {/* Section Navigation */}
+          <div className="ed-section-nav">
+            {sections.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                className={`ed-section-nav-btn ${
+                  activeSection === section.id ? "active" : ""
+                }`}
+                onClick={() => setActiveSection(section.id)}
+              >
+                {section.icon}
+                <span>{section.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Dynamic Section Content */}
+          <div className="ed-active-section">{renderSectionContent()}</div>
+
+          {/* Speakers section (always visible) */}
+          <section className="ed-speakers-section">
+            <div className="ed-section-header">
+              <span className="ed-section-kicker">Speakers</span>
+              <h2 className="ed-section-title">Speakers</h2>
+            </div>
+            <div className="ed-speakers-grid">
+              {speakers.map((sp) => (
+                <article key={sp.id} className="ed-speaker-card">
+                  <div className="ed-speaker-avatar-wrap">
+                    <FaUserTie className="ed-speaker-icon" />
+                  </div>
+                  <h3 className="ed-speaker-name">{sp.name}</h3>
+                  <div className="ed-speaker-role">{sp.role}</div>
+                  <div className="ed-speaker-org">{sp.organisation}</div>
+                  <div className="ed-speaker-country">{sp.country}</div>
+                  <p className="ed-speaker-bio">{sp.bio}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        </main>
+
+        {/* BADGE SECTION */}
+        {badgeReady && (
+          <section className="ed-badge-section">
+            <div className="ed-section-header">
+              <span className="ed-section-kicker">Badge</span>
+              <h2 className="ed-section-title">Your badge</h2>
+            </div>
+
+            {/* hidden badge only for PDF generation */}
+            <div
+              style={{ position: "absolute", left: "-9999px", top: 0 }}
+              aria-hidden="true"
+            >
+              <div ref={badgeRef} className="idcard">
+                <div className="idcard-top">
+                  <div className="idcard-brand">
+                    <span className="idcard-brand-name">MEDEVENTA</span>
+                    <span className="idcard-brand-sub">Scientific Events</span>
+                  </div>
+                </div>
+
+                <div className="idcard-body">
+                  <div className="idcard-avatar">
+                    <FaUserCircle className="idcard-avatar-icon" />
+                  </div>
+
+                  <div className="idcard-main">
+                    <div className="idcard-name">
+                      {(
+                        inscriptionData?.fullName ||
+                        currentUser?.name ||
+                        ""
+                      ).toUpperCase() || "GUEST"}
+                    </div>
+                    <div className="idcard-role">
+                      {paymentMethod === "online"
+                        ? "Online Participant"
+                        : "On-site Participant"}
+                    </div>
+
+                    <div className="idcard-payment">
+                      Payment status:{" "}
+                      {paymentStatus === "a_payer" ? "Not paid" : "Paid online"}
+                    </div>
+
+                    <div className="idcard-id-line">
+                      <span className="idcard-id-label">Badge ID</span>
+                      <span className="idcard-id-value">{badgeCode}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="idcard-footer">
+                  <div className="idcard-dates">
+                    <span>Valid from {startDate}</span>
+                    <span>to {endDate}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* visible part */}
+            <div className="ed-badge-wrapper">
+              <p className="ed-badge-info">
+                Your MEDEVENTA badge is generated. You can download it as PDF.
+              </p>
+              <button
+                type="button"
+                className="btn-secondary badge-download"
+                onClick={handleDownloadBadge}
+              >
+                <FaDownload />
+                <span>Download badge (PDF)</span>
+              </button>
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* EVENT REGISTRATION MODAL */}
+      {showRegistrationModal && (
+        <div className="ed-modal-backdrop">
+          <div className="ed-modal large">
+            <button
+              type="button"
+              className="ed-modal-close"
+              onClick={() => setShowRegistrationModal(false)}
+              disabled={loading}
+            >
+              ×
+            </button>
+
+            <div className="ed-modal-header">
+              <span className="ed-modal-tag">Secure Registration</span>
+              <h3 className="ed-modal-title">Complete Your Registration</h3>
+              <p className="ed-modal-subtitle">
+                Fill in your details and choose your payment method
+              </p>
+            </div>
+
+            <div className="ed-modal-body">
+              {eventRegistrationError && (
+                <div className="ed-message-error">
+                  <FaTimes /> {eventRegistrationError}
+                </div>
+              )}
+              <form
+                id="ed-registration-form"
+                onSubmit={handleConfirmRegistration}
+              >
+                <div className="ed-form-grid">
+                  <div className="ed-form-group">
+                    <label htmlFor="fullName">
+                      Full name <span className="ed-required">*</span>
+                    </label>
+                    <input
+                      id="fullName"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="John Smith"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="ed-form-group">
+                    <label htmlFor="email">
+                      Business email <span className="ed-required">*</span>
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="john.smith@company.com"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="ed-form-group">
+                    <label htmlFor="organisation">
+                      Organisation / Hospital
+                    </label>
+                    <input
+                      id="organisation"
+                      type="text"
+                      value={organisation}
+                      onChange={(e) => setOrganisation(e.target.value)}
+                      placeholder="Your organisation"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                <div className="ed-payment-section">
+                  <h4 className="ed-section-title">
+                    <FaRegCreditCard /> Payment Options
+                  </h4>
+                  <div className="ed-payment-options">
+                    <div
+                      className={`ed-payment-option ${
+                        paymentMethod === "online" ? "active" : ""
+                      }`}
+                      onClick={() => setPaymentMethod("online")}
+                    >
+                      <div className="ed-payment-icon">
+                        <FaRegCreditCard />
+                      </div>
+                      <div className="ed-payment-content">
+                        <div className="ed-payment-title">Pay online</div>
+                        <div className="ed-payment-description">
+                          Secure instant payment with card
+                        </div>
+                        <div className="ed-payment-badge">Instant pass</div>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`ed-payment-option ${
+                        paymentMethod === "onsite" ? "active" : ""
+                      }`}
+                      onClick={() => setPaymentMethod("onsite")}
+                    >
+                      <div className="ed-payment-icon">
+                        <FaCalendarAlt />
+                      </div>
+                      <div className="ed-payment-content">
+                        <div className="ed-payment-title">Pay at event</div>
+                        <div className="ed-payment-description">
+                          Pay when you arrive at the venue
+                        </div>
+                        <div className="ed-payment-badge">Reservation only</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="ed-modal-footer">
+                  <div className="ed-terms">
+                    <input
+                      type="checkbox"
+                      id="terms"
+                      required
+                      disabled={loading}
+                    />
+                    <label htmlFor="terms">
+                      I agree to the terms and conditions and privacy policy
+                    </label>
+                  </div>
+                  <div className="ed-modal-actions">
+                    <button
+                      type="button"
+                      className="ed-btn secondary"
+                      onClick={() => setShowRegistrationModal(false)}
+                      disabled={loading}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="ed-btn primary wide"
+                      disabled={loading}
+                    >
+                      {loading ? <FaSpinner className="spin" /> : null}
+                      {loading ? "Processing..." : "Confirm Registration"}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WORKSHOP REGISTRATION MODAL */}
+      {showWorkshopModal && selectedWorkshop && (
+        <div className="ed-modal-backdrop">
+          <div className="ed-modal medium">
+            <button
+              type="button"
+              className="ed-modal-close"
+              onClick={() => setShowWorkshopModal(false)}
+              disabled={registrationLoading}
+            >
+              ×
+            </button>
+
+            <div className="ed-modal-header">
+              <span className="ed-modal-tag">Workshop Registration</span>
+              <h3 className="ed-modal-title">Register for Workshop</h3>
+              <p className="ed-modal-subtitle">{selectedWorkshop.title}</p>
+            </div>
+
+            <div className="ed-modal-body">
+              {registrationSuccess ? (
+                <div className="ed-registration-success">
+                  <FaCheck className="ed-success-icon" />
+                  <h4>Registration Successful!</h4>
+                  <p>You have successfully registered for the workshop.</p>
+                  <button
+                    type="button"
+                    className="ed-btn secondary"
+                    onClick={() => setShowWorkshopModal(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitWorkshopRegistration}>
+                  {workshopError && (
+                    <div className="ed-message-error">
+                      <FaTimes /> {workshopError}
+                    </div>
+                  )}
+                  <div className="ed-workshop-info">
+                    <div className="ed-info-row">
+                      <FaClock /> <strong>Time:</strong> {selectedWorkshop.time}
+                    </div>
+                    <div className="ed-info-row">
+                      <FaMapMarkerAlt /> <strong>Location:</strong>{" "}
+                      {selectedWorkshop.room}
+                    </div>
+                    <div className="ed-info-row">
+                      <FaUserTie /> <strong>Trainer:</strong>{" "}
+                      {selectedWorkshop.trainer}
+                    </div>
+                    <div className="ed-info-row">
+                      <FaUsers /> <strong>Availability:</strong>{" "}
+                      {selectedWorkshop.registeredCount}/
+                      {selectedWorkshop.capacity}
+                    </div>
+                  </div>
+
+                  <div className="ed-form-group">
+                    <label>Additional Notes (Optional)</label>
+                    <textarea
+                      name="notes"
+                      value={workshopSessionForm.notes}
+                      onChange={handleWorkshopSessionChange}
+                      placeholder="Any special requirements or notes..."
+                      rows="3"
+                      disabled={registrationLoading}
+                    />
+                  </div>
+
+                  <div className="ed-form-group">
+                    <label>Dietary Requirements (Optional)</label>
+                    <input
+                      type="text"
+                      name="dietaryRequirements"
+                      value={workshopSessionForm.dietaryRequirements}
+                      onChange={handleWorkshopSessionChange}
+                      placeholder="e.g., Vegetarian, Gluten-free"
+                      disabled={registrationLoading}
+                    />
+                  </div>
+
+                  <div className="ed-form-group">
+                    <label>Special Needs (Optional)</label>
+                    <input
+                      type="text"
+                      name="specialNeeds"
+                      value={workshopSessionForm.specialNeeds}
+                      onChange={handleWorkshopSessionChange}
+                      placeholder="e.g., Wheelchair access"
+                      disabled={registrationLoading}
+                    />
+                  </div>
+
+                  <div className="ed-modal-footer">
+                    <div className="ed-terms">
+                      <input
+                        type="checkbox"
+                        id="workshop-terms"
+                        required
+                        disabled={registrationLoading}
+                      />
+                      <label htmlFor="workshop-terms">
+                        I confirm my registration for this workshop
+                      </label>
+                    </div>
+                    <div className="ed-modal-actions">
+                      <button
+                        type="button"
+                        className="ed-btn secondary"
+                        onClick={() => setShowWorkshopModal(false)}
+                        disabled={registrationLoading}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="ed-btn primary wide"
+                        disabled={registrationLoading}
+                      >
+                        {registrationLoading ? (
+                          <FaSpinner className="spin" />
+                        ) : (
+                          <FaPen />
+                        )}
+                        {registrationLoading
+                          ? "Registering..."
+                          : "Confirm Workshop Registration"}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SESSION REGISTRATION MODAL */}
+      {showSessionModal && selectedSession && (
+        <div className="ed-modal-backdrop">
+          <div className="ed-modal medium">
+            <button
+              type="button"
+              className="ed-modal-close"
+              onClick={() => setShowSessionModal(false)}
+              disabled={registrationLoading}
+            >
+              ×
+            </button>
+
+            <div className="ed-modal-header">
+              <span className="ed-modal-tag">Session Registration</span>
+              <h3 className="ed-modal-title">Register for Session</h3>
+              <p className="ed-modal-subtitle">{selectedSession.title}</p>
+            </div>
+
+            <div className="ed-modal-body">
+              {registrationSuccess ? (
+                <div className="ed-registration-success">
+                  <FaCheck className="ed-success-icon" />
+                  <h4>Registration Successful!</h4>
+                  <p>You have successfully registered for the session.</p>
+                  <button
+                    type="button"
+                    className="ed-btn secondary"
+                    onClick={() => setShowSessionModal(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitSessionRegistration}>
+                  <div className="ed-session-info">
+                    <div className="ed-info-row">
+                      <FaClock /> <strong>Time:</strong> {selectedSession.time}
+                    </div>
+                    <div className="ed-info-row">
+                      <FaMapMarkerAlt /> <strong>Location:</strong>{" "}
+                      {selectedSession.room}
+                    </div>
+                    <div className="ed-info-row">
+                      <FaUserTie /> <strong>Chair:</strong>{" "}
+                      {selectedSession.chair}
+                    </div>
+                    <div className="ed-info-row">
+                      <FaUsers /> <strong>Availability:</strong>{" "}
+                      {selectedSession.registeredCount}/
+                      {selectedSession.capacity}
+                    </div>
+                  </div>
+
+                  <div className="ed-form-group">
+                    <label>Additional Notes (Optional)</label>
+                    <textarea
+                      name="notes"
+                      value={workshopSessionForm.notes}
+                      onChange={handleWorkshopSessionChange}
+                      placeholder="Any special requirements or notes..."
+                      rows="3"
+                      disabled={registrationLoading}
+                    />
+                  </div>
+
+                  <div className="ed-form-group">
+                    <label>Dietary Requirements (Optional)</label>
+                    <input
+                      type="text"
+                      name="dietaryRequirements"
+                      value={workshopSessionForm.dietaryRequirements}
+                      onChange={handleWorkshopSessionChange}
+                      placeholder="e.g., Vegetarian, Gluten-free"
+                      disabled={registrationLoading}
+                    />
+                  </div>
+
+                  <div className="ed-form-group">
+                    <label>Special Needs (Optional)</label>
+                    <input
+                      type="text"
+                      name="specialNeeds"
+                      value={workshopSessionForm.specialNeeds}
+                      onChange={handleWorkshopSessionChange}
+                      placeholder="e.g., Wheelchair access"
+                      disabled={registrationLoading}
+                    />
+                  </div>
+
+                  <div className="ed-modal-footer">
+                    <div className="ed-terms">
+                      <input
+                        type="checkbox"
+                        id="session-terms"
+                        required
+                        disabled={registrationLoading}
+                      />
+                      <label htmlFor="session-terms">
+                        I confirm my registration for this session
+                      </label>
+                    </div>
+                    <div className="ed-modal-actions">
+                      <button
+                        type="button"
+                        className="ed-btn secondary"
+                        onClick={() => setShowSessionModal(false)}
+                        disabled={registrationLoading}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="ed-btn primary wide"
+                        disabled={registrationLoading}
+                      >
+                        {registrationLoading ? (
+                          <FaSpinner className="spin" />
+                        ) : (
+                          <FaBook />
+                        )}
+                        {registrationLoading
+                          ? "Registering..."
+                          : "Confirm Session Registration"}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAYMENT STEP MODAL */}
+      {showPaymentStep && (
+        <div className="ed-modal-backdrop">
+          <div className="ed-modal medium">
+            <button
+              type="button"
+              className="ed-modal-close"
+              onClick={() => {
+                setShowPaymentStep(false);
+                setShowRegistrationModal(true);
+              }}
+              disabled={processingPayment}
+            >
+              ×
+            </button>
+
+            <div className="ed-modal-header">
+              <span className="ed-modal-tag">Secure Payment</span>
+              <h3 className="ed-modal-title">Complete Online Payment</h3>
+              <p className="ed-modal-subtitle">
+                Enter your payment details to complete registration
+              </p>
+            </div>
+
+            <div className="ed-modal-body">
+              {eventRegistrationError && (
+                <div className="ed-message-error">
+                  <FaTimes /> {eventRegistrationError}
+                </div>
+              )}
+
+              {paymentFormError && (
+                <div className="ed-message-error">
+                  <FaTimes /> {paymentFormError}
+                </div>
+              )}
+
+              <div className="ed-payment-summary">
+                <div className="ed-payment-summary-row">
+                  <span className="ed-payment-label">Event:</span>
+                  <span className="ed-payment-value">{event.name}</span>
+                </div>
+                <div className="ed-payment-summary-row">
+                  <span className="ed-payment-label">Participant:</span>
+                  <span className="ed-payment-value">
+                    {inscriptionData?.fullName || currentUser?.name || "N/A"}
+                  </span>
+                </div>
+                <div className="ed-payment-summary-row">
+                  <span className="ed-payment-label">Email:</span>
+                  <span className="ed-payment-value">
+                    {inscriptionData?.email || currentUser?.email || "N/A"}
+                  </span>
+                </div>
+                <div className="ed-payment-summary-row">
+                  <span className="ed-payment-label">Amount:</span>
+                  <span className="ed-payment-value">€150.00</span>
+                </div>
+              </div>
+
+              <div className="ed-card-payment-section">
+                <h4 className="ed-section-title">Payment Details</h4>
+                <div className="ed-card-form">
+                  <div className="ed-form-group">
+                    <label htmlFor="cardHolderName">
+                      Card Holder Name <span className="ed-required">*</span>
+                    </label>
+                    <input
+                      id="cardHolderName"
+                      type="text"
+                      placeholder="John Smith"
+                      value={cardHolderName}
+                      onChange={(e) => setCardHolderName(e.target.value)}
+                      disabled={processingPayment}
+                    />
+                  </div>
+
+                  <div className="ed-form-group">
+                    <label htmlFor="cardNumber">
+                      Card Number <span className="ed-required">*</span>
+                    </label>
+                    <div className="ed-card-input">
+                      <FaRegCreditCard className="ed-card-icon" />
+                      <input
+                        id="cardNumber"
+                        type="text"
+                        placeholder="1234 5678 9012 3456"
+                        value={cardNumber}
+                        onChange={(e) => setCardNumber(e.target.value)}
+                        disabled={processingPayment}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="ed-card-details">
+                    <div className="ed-form-group">
+                      <label htmlFor="cardExpiry">
+                        Expiry Date (MM/YY){" "}
+                        <span className="ed-required">*</span>
+                      </label>
+                      <input
+                        id="cardExpiry"
+                        type="text"
+                        placeholder="MM/YY"
+                        value={cardExpiry}
+                        onChange={(e) => setCardExpiry(e.target.value)}
+                        disabled={processingPayment}
+                      />
+                    </div>
+                    <div className="ed-form-group">
+                      <label htmlFor="cardCvc">
+                        CVC <span className="ed-required">*</span>
+                      </label>
+                      <input
+                        id="cardCvc"
+                        type="text"
+                        placeholder="123"
+                        value={cardCvc}
+                        onChange={(e) => setCardCvc(e.target.value)}
+                        disabled={processingPayment}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="ed-payment-security">
+                    <FaInfoCircle className="ed-info-icon" />
+                    <span>
+                      Your payment is secured with SSL encryption. No card
+                      details are stored on our servers.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="ed-modal-footer">
+                <div className="ed-terms">
+                  <input
+                    type="checkbox"
+                    id="payment-terms"
+                    required
+                    disabled={processingPayment}
+                  />
+                  <label htmlFor="payment-terms">
+                    I authorize MEDEVENTA to charge my card for the registration
+                    fee
+                  </label>
+                </div>
+                <div className="ed-modal-actions">
+                  <button
+                    type="button"
+                    className="ed-btn secondary"
+                    onClick={() => {
+                      setShowPaymentStep(false);
+                      setShowRegistrationModal(true);
+                    }}
+                    disabled={processingPayment}
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    className="ed-btn primary wide"
+                    onClick={handleProcessPayment}
+                    disabled={processingPayment}
+                  >
+                    {processingPayment ? (
+                      <>
+                        <FaSpinner className="spin" /> Processing Payment...
+                      </>
+                    ) : (
+                      <>
+                        <FaRegCreditCard /> Pay €150.00
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE QUESTION CONFIRMATION MODAL */}
+      {questionToDelete && (
+        <div className="ed-modal-backdrop">
+          <div className="ed-modal small">
+            <div className="ed-modal-header">
+              <h3 className="ed-modal-title">Delete Question</h3>
+            </div>
+            <div className="ed-modal-body">
+              <p>
+                Are you sure you want to delete this question? This action
+                cannot be undone.
+              </p>
+            </div>
+            <div className="ed-modal-footer">
+              <div className="ed-modal-actions">
+                <button
+                  type="button"
+                  className="ed-btn secondary"
+                  onClick={() => setQuestionToDelete(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="ed-btn primary"
+                  onClick={handleDeleteQuestion}
+                >
+                  <FaTrash /> Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default EventDetailsPage;
