@@ -1,0 +1,145 @@
+.po-wrapper {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Search bar */
+.po-search-bar {
+  margin-bottom: 1.5rem;
+}
+
+.po-search-input {
+  width: 100%;
+  padding: 0.9rem 1.2rem;
+  border-radius: 999px;
+  border: none;
+  outline: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  font-size: 0.95rem;
+}
+
+/* Stats row */
+.po-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.po-stat-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 1rem 1.2rem;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.po-stat-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #5d7b8a;
+  margin-bottom: 0.5rem;
+}
+
+.po-stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #0f9d8a;
+}
+
+.po-stat-sub {
+  font-size: 0.75rem;
+  color: #8ca1ad;
+}
+
+/* Chart card */
+.po-chart-card {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 1.5rem;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.08);
+  margin-bottom: 2rem;
+}
+
+.po-chart-title {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #5d7b8a;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.po-chart-placeholder {
+  height: 260px;
+  border-radius: 18px;
+  background: linear-gradient(
+    135deg,
+    rgba(15, 157, 138, 0.12),
+    rgba(15, 157, 138, 0.04)
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3e5a63;
+  font-size: 0.9rem;
+}
+
+/* Spotlight */
+.po-spotlight {
+  display: grid;
+  grid-template-columns: auto 1.5fr 2fr;
+  align-items: center;
+  background: #0f9d8a;
+  color: #ffffff;
+  border-radius: 20px;
+  padding: 1.2rem 1.6rem;
+  gap: 1rem;
+}
+
+.po-spotlight-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #ffffff22;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+}
+
+.po-spotlight-text h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.po-spotlight-text p {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+}
+
+.po-spotlight-quote {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .po-stats-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .po-spotlight {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .po-stats-row {
+    grid-template-columns: 1fr;
+  }
+}

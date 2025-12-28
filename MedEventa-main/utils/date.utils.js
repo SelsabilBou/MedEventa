@@ -1,0 +1,1 @@
+// Fonctions utilitaires pour gérer les dates (ex. : vérifier si une date est future, formater les dates)
