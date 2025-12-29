@@ -30,6 +30,9 @@ import ActivityFeed from "./components/ActivityFeed";
 import EventsPage from "./components/EventsPage";
 import EventDetailsPage from "./components/EventDetailsPage";
 
+// sessions
+import SessionLivePage from "./components/SessionLivePage";
+
 // messages
 import Messages from "./components/Messages";
 
@@ -309,6 +312,9 @@ function App() {
         element={<EventsPage extraEvents={adminEvents} />}
       />
       <Route path="/events/:id" element={<EventDetailsPage />} />
+
+      {/* Sessions */}
+      <Route path="/sessions/:sessionId/live" element={<SessionLivePage />} />
 
       {/* Messages */}
       <Route path="/messages" element={<Messages />} />

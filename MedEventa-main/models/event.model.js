@@ -54,7 +54,7 @@ const getEvents = (status, callback) => {
 
 const getEventDetails = (eventId, callback) => {
   const sqlEvent = `
-    SELECT id, titre, description, date_debut, date_fin, lieu, thematique, contact
+    SELECT id, titre, description, date_debut, date_fin, lieu, thematique, contact, id_organisateur
     FROM evenement
     WHERE id = ?
   `;
