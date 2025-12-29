@@ -1,8 +1,9 @@
 // src/components/ParticipantProgramme.jsx
 import React, { useMemo } from "react";
-import { ArrowLeft, CalendarDays, Clock, MapPin } from "lucide-react";
+import { CalendarDays, Clock, MapPin, ExternalLink } from "lucide-react";
 import "./ParticipantProgramme.css";
 import { useNavigate } from "react-router-dom";
+import DashboardLayout from "./DashboardLayout";
 
 const ParticipantProgramme = ({ registrations }) => {
   const navigate = useNavigate();
@@ -43,26 +44,18 @@ const ParticipantProgramme = ({ registrations }) => {
       year: "numeric",
     });
 
-  const handleBack = () => {
-    navigate("/participant/dashboard");
-  };
-
   return (
-    <div className="pp-wrapper">
-      <div className="pp-inner">
-        <header className="pp-header">
-          <div className="pp-header-left">
-            <h1>My Programme</h1>
-            <p className="pp-subtitle">
-              Your upcoming events, workshops and sessions, organized by day.
-            </p>
-          </div>
-
-          <button type="button" className="pp-back-btn" onClick={handleBack}>
-            <ArrowLeft />
-            <span>Back to dashboard</span>
-          </button>
-        </header>
+    <DashboardLayout>
+      <div className="pp-wrapper">
+        <div className="pp-inner">
+          <header className="pp-header">
+            <div className="pp-header-left">
+              <h1>My Programme</h1>
+              <p className="pp-subtitle">
+                Your upcoming events, workshops and sessions, organized by day.
+              </p>
+            </div>
+          </header>
 
         {upcomingByDate.length === 0 && (
           <div className="pp-empty">
@@ -97,6 +90,17 @@ const ParticipantProgramme = ({ registrations }) => {
 
                       <h2 className="pp-card-title">{reg.title}</h2>
 
+                      {/* Add link to session live page for Session type */}
+                      {reg.type === "Session" && (
+                        <button
+                          className="pp-live-link"
+                          onClick={() => navigate(`/sessions/${reg.id}/live`)}
+                        >
+                          <ExternalLink size={16} />
+                          Join Live Session
+                        </button>
+                      )}
+
                       {reg.parent && (
                         <p className="pp-card-parent">{reg.parent}</p>
                       )}
@@ -119,7 +123,8 @@ const ParticipantProgramme = ({ registrations }) => {
           ))}
         </div>
       </div>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };
 

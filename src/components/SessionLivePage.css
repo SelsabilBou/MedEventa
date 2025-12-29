@@ -1,0 +1,553 @@
+/* Session Live Page Styles */
+.session-live-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.session-live-loading,
+.session-live-error {
+  text-align: center;
+  padding: 4rem 2rem;
+  font-size: 1.2rem;
+  color: #5d7b8a;
+}
+
+.session-live-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid rgba(15, 157, 138, 0.2);
+}
+
+.session-live-header-info h1 {
+  font-size: 2rem;
+  color: #12324a;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.session-live-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #5d7b8a;
+  margin: 0.5rem 0;
+  font-size: 0.95rem;
+}
+
+.session-live-header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.session-live-attendance-btn {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.session-live-attendance-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4);
+}
+
+.session-live-attendance-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.session-live-attendance-marked {
+  background: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+  padding: 0.75rem 1.5rem;
+  border-radius: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 2px solid #28a745;
+}
+
+.session-live-error-message {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #fff3cd;
+  color: #856404;
+  border-radius: 8px;
+  border-left: 4px solid #ffc107;
+}
+
+.session-live-qr-btn {
+  background: linear-gradient(135deg, #0f9d8a, #0c7f70);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(15, 157, 138, 0.3);
+}
+
+.session-live-qr-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 157, 138, 0.4);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* QR Code Modal */
+.session-live-qr-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+}
+
+.session-live-qr-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.session-live-qr-content h3 {
+  margin-bottom: 1.5rem;
+  color: #12324a;
+  font-size: 1.5rem;
+}
+
+.session-live-qr-instruction {
+  color: #5d7b8a;
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.session-live-qr-url-container {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.session-live-qr-url {
+  color: #5d7b8a;
+  font-size: 0.85rem;
+  word-break: break-all;
+  padding: 0.75rem;
+  background: #f5f5f5;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.session-live-copy-btn {
+  padding: 0.6rem 1.5rem;
+  background: #0f9d8a;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.session-live-copy-btn:hover {
+  background: #0c7f70;
+}
+
+.session-live-close-btn {
+  margin-top: 1.5rem;
+  padding: 0.75rem 2rem;
+  background: #5d7b8a;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.session-live-close-btn:hover {
+  background: #4a6470;
+}
+
+/* Main Content - Two Columns */
+.session-live-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.session-live-panel {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(93, 123, 138, 0.1);
+}
+
+.session-live-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(15, 157, 138, 0.1);
+}
+
+.session-live-panel-header svg {
+  color: #0f9d8a;
+  font-size: 1.5rem;
+}
+
+.session-live-panel-header h2 {
+  font-size: 1.5rem;
+  color: #12324a;
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Login Prompt for Unauthenticated Users */
+.session-live-login-prompt {
+  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+  border: 2px solid #ffc107;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+  text-align: center;
+}
+
+.session-live-login-prompt p {
+  margin: 0;
+  color: #856404;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.session-live-login-prompt svg {
+  color: #ffc107;
+}
+
+.session-live-login-btn {
+  background: linear-gradient(135deg, #0f9d8a, #0c7f70);
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(15, 157, 138, 0.3);
+}
+
+.session-live-login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 157, 138, 0.4);
+}
+
+/* Q&A Styles */
+.session-live-question-form {
+  margin-bottom: 2rem;
+}
+
+.session-live-question-form textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid rgba(93, 123, 138, 0.2);
+  border-radius: 12px;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
+  transition: border-color 0.3s ease;
+}
+
+.session-live-question-form textarea:focus {
+  outline: none;
+  border-color: #0f9d8a;
+}
+
+.session-live-question-form textarea:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.session-live-form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.session-live-char-count {
+  color: #8ca2af;
+  font-size: 0.85rem;
+}
+
+.session-live-error-text {
+  color: #ff4757;
+  font-size: 0.9rem;
+  flex: 1;
+  margin-left: 1rem;
+}
+
+.session-live-submit-btn {
+  background: linear-gradient(135deg, #0f9d8a, #0c7f70);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.session-live-submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 157, 138, 0.4);
+}
+
+.session-live-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.session-live-questions-list {
+  max-height: 600px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.session-live-question-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.25rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border-left: 4px solid #0f9d8a;
+  transition: all 0.2s ease;
+}
+
+.session-live-question-item:hover {
+  background: #f1f5f9;
+  transform: translateX(4px);
+}
+
+.session-live-question-content {
+  flex: 1;
+}
+
+.session-live-question-content p {
+  margin: 0 0 0.75rem;
+  color: #12324a;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.session-live-question-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #8ca2af;
+}
+
+.session-live-like-btn {
+  background: transparent;
+  border: 2px solid rgba(15, 157, 138, 0.3);
+  color: #0f9d8a;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  margin-left: 1rem;
+}
+
+.session-live-like-btn:hover {
+  background: rgba(15, 157, 138, 0.1);
+  border-color: #0f9d8a;
+}
+
+.session-live-empty {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #8ca2af;
+  font-style: italic;
+}
+
+/* Polls Styles */
+.session-live-poll-active h3,
+.session-live-poll-results h3 {
+  font-size: 1.25rem;
+  color: #12324a;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.session-live-poll-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.session-live-poll-option {
+  padding: 1.25rem;
+  background: #f8fafc;
+  border: 2px solid rgba(93, 123, 138, 0.2);
+  border-radius: 12px;
+  text-align: left;
+  font-size: 1rem;
+  color: #12324a;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.session-live-poll-option:hover {
+  background: #f1f5f9;
+  border-color: #0f9d8a;
+}
+
+.session-live-poll-option.selected {
+  background: rgba(15, 157, 138, 0.1);
+  border-color: #0f9d8a;
+  color: #0f9d8a;
+  font-weight: 600;
+}
+
+.session-live-poll-results {
+  padding: 1rem 0;
+}
+
+.session-live-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.session-live-result-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.session-live-result-label {
+  font-weight: 600;
+  color: #12324a;
+  font-size: 1rem;
+}
+
+.session-live-result-bar {
+  height: 32px;
+  background: #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.session-live-result-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0f9d8a, #0c7f70);
+  transition: width 0.5s ease;
+  border-radius: 8px;
+}
+
+.session-live-result-stats {
+  font-size: 0.9rem;
+  color: #5d7b8a;
+}
+
+.session-live-voted-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: rgba(15, 157, 138, 0.1);
+  border-radius: 12px;
+  color: #0f9d8a;
+  font-weight: 600;
+  margin-top: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .session-live-content {
+    grid-template-columns: 1fr;
+  }
+
+  .session-live-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .session-live-container {
+    padding: 1rem;
+  }
+
+  .session-live-header-info h1 {
+    font-size: 1.5rem;
+  }
+
+  .session-live-panel {
+    padding: 1.5rem;
+  }
+}
+

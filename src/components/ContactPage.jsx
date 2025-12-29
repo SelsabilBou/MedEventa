@@ -118,41 +118,6 @@ export default function ContactPage() {
           </div>
         </div>
       </section>
-
-      {/* FOOTER */}
-      <footer className="footer">
-        <div className="footer-inner">
-          <div className="footer-col">
-            <h3>MedEventa</h3>
-            <h4>Join our community</h4>
-            <p>+213 555 605 560</p>
-            <p>support@medeventa.com</p>
-            <p>Platform for scientific health events.</p>
-          </div>
-
-          <div className="footer-col">
-            <h4>Platform</h4>
-            <p>Discover conferences &amp; congresses</p>
-            <p>Submit and track abstracts</p>
-            <p>Manage registrations online</p>
-          </div>
-
-          <div className="footer-col">
-            <h4>Social media</h4>
-            <p>Instagram: @MedEventa</p>
-            <p>Facebook: MedEventa</p>
-            <p>LinkedIn: MedEventa</p>
-          </div>
-
-          <div className="footer-donate">
-            <h4>Support MedEventa</h4>
-            <div className="donate-box">
-              <span>Support us</span>
-              <button>Support</button>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

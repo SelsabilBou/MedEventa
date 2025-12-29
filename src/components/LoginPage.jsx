@@ -3,7 +3,7 @@ import "./Login.css";
 import { auth, googleProvider } from "./firebase";
 import { signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
 import { FaGoogle, FaEye, FaEyeSlash } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,13 +14,20 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnUrl = searchParams.get("returnUrl");
 
   const goHome = () => navigate("/");
   const goSignup = () => navigate("/signup");
   const goForgot = () => navigate("/forgot");
 
   const handleLoginSuccess = () => {
-    navigate("/"); // after login, go home (or another route if you want)
+    // Redirect to returnUrl if provided, otherwise go to home
+    if (returnUrl) {
+      navigate(returnUrl);
+    } else {
+      navigate("/");
+    }
   };
 
   const handleSubmit = async (e) => {

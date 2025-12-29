@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import "./Navbar.css";
 import { FaChevronDown, FaBars, FaBell } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import ActivityFeed from "./ActivityFeed";
 
 const Navbar = () => {
@@ -16,10 +16,42 @@ const Navbar = () => {
   const [isActivityOpen, setIsActivityOpen] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleNavClick = (e, path) => {
+  const handleNavClick = (e, path, sectionId = null) => {
     e.preventDefault();
-    navigate(path);
+
+    // If we're navigating to home and there's a section
+    if (path === "/" && sectionId) {
+      // If we're already on home page, just scroll
+      if (location.pathname === "/") {
+        const element = document.getElementById(sectionId);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth" });
+        }
+      } else {
+        // Navigate first, then scroll after page loads
+        navigate("/");
+        setTimeout(() => {
+          const element = document.getElementById(sectionId);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth" });
+          }
+        }, 300);
+      }
+    } else if (path === "/") {
+      // Just navigate to home, scroll to top
+      if (location.pathname === "/") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        navigate("/");
+        setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }, 300);
+      }
+    } else {
+      navigate(path);
+    }
   };
 
   const handleAuthClick = () => {
@@ -41,7 +73,16 @@ const Navbar = () => {
           {/* Logo */}
           <div
             className="navbar-logo"
-            onClick={() => navigate("/")}
+            onClick={() => {
+              if (location.pathname === "/") {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else {
+                navigate("/");
+                setTimeout(() => {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }, 300);
+              }
+            }}
             style={{ cursor: "pointer" }}
           >
             <div className="navbar-logo-text">
@@ -55,28 +96,28 @@ const Navbar = () => {
             <a
               href="#home"
               className="navbar-link"
-              onClick={(e) => handleNavClick(e, "/")}
+              onClick={(e) => handleNavClick(e, "/", "home")}
             >
               Home
             </a>
             <a
               href="#events"
               className="navbar-link"
-              onClick={(e) => handleNavClick(e, "/events")}
+              onClick={(e) => handleNavClick(e, "/", "events")}
             >
               Events
             </a>
             <a
               href="#about"
               className="navbar-link"
-              onClick={(e) => handleNavClick(e, "/about")}
+              onClick={(e) => handleNavClick(e, "/", "about")}
             >
               About
             </a>
             <a
               href="#contact"
               className="navbar-link"
-              onClick={(e) => handleNavClick(e, "/contact")}
+              onClick={(e) => handleNavClick(e, "/", "contact")}
             >
               Contact Us
             </a>

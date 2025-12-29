@@ -6,6 +6,7 @@ import {
   FaTimes,
   FaSpinner,
   FaFilePdf,
+  FaInfoCircle,
 } from "react-icons/fa";
 
 const EventCallSection = ({
@@ -18,6 +19,7 @@ const EventCallSection = ({
   handleSubmissionChange,
   handleSubmitSubmission,
   loading,
+  isAuthor = false,
 }) => {
   return (
     <div className="ed-section-content">
@@ -98,14 +100,30 @@ const EventCallSection = ({
 
         {!showSubmissionForm ? (
           <div className="ed-call-actions">
-            <button
-              className="ed-btn primary wide"
-              onClick={() => setShowSubmissionForm(true)}
-            >
-              <FaUpload /> Submit Your Abstract
-            </button>
+            {isAuthor ? (
+              <button
+                className="ed-btn primary wide"
+                onClick={() => setShowSubmissionForm(true)}
+              >
+                <FaUpload /> Submit Your Abstract
+              </button>
+            ) : (
+              <div
+                className="ed-message-info"
+                style={{
+                  padding: "1rem",
+                  textAlign: "center",
+                  backgroundColor: "#e3f2fd",
+                  borderRadius: "8px",
+                  color: "#1976d2",
+                }}
+              >
+                <FaInfoCircle style={{ marginRight: "0.5rem" }} />
+                Only the event author can submit submissions.
+              </div>
+            )}
           </div>
-        ) : (
+        ) : isAuthor ? (
           <div className="ed-submission-form-container">
             {submissionSuccess ? (
               <div className="ed-submission-success">
@@ -326,6 +344,13 @@ const EventCallSection = ({
                 </div>
               </form>
             )}
+          </div>
+        ) : (
+          <div
+            className="ed-message-error"
+            style={{ padding: "1rem", textAlign: "center" }}
+          >
+            <FaTimes /> Only the event author can submit submissions.
           </div>
         )}
       </div>

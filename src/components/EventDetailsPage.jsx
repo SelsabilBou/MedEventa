@@ -1,6 +1,7 @@
 // src/components/EventDetailsPage.jsx
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import NavBar from "./NavBar";
 import {
   FaCalendarAlt,
   FaUsers,
@@ -130,6 +131,7 @@ const EventDetailsPage = () => {
   const [questionSuccess, setQuestionSuccess] = useState(false);
   const [submittingQuestion, setSubmittingQuestion] = useState(false);
   const [questionToDelete, setQuestionToDelete] = useState(null); // For delete confirmation
+  const [eventDetails, setEventDetails] = useState(null); // Full event details from API
 
   const badgeRef = useRef(null);
 
@@ -142,6 +144,22 @@ const EventDetailsPage = () => {
       return null;
     }
   }, []);
+
+  // Fetch event details from API to get organizer ID
+  useEffect(() => {
+    const fetchEventDetails = async () => {
+      if (!id) return;
+      try {
+        const response = await axios.get(`/api/events/${id}`);
+        if (response.data) {
+          setEventDetails(response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching event details:", error);
+      }
+    };
+    fetchEventDetails();
+  }, [id]);
 
   // Auto-fill form with user data if available
   useEffect(() => {
@@ -731,6 +749,15 @@ const EventDetailsPage = () => {
   // Handle submission form submission
   const handleSubmitSubmission = async (e) => {
     e.preventDefault();
+
+    // Check if user is the event organizer/author
+    const organizerId =
+      eventDetails?.event?.id_organisateur || eventDetails?.id_organisateur;
+    if (!currentUser || !organizerId || currentUser.id !== organizerId) {
+      setSubmissionError("Only the event author can submit submissions.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -1227,7 +1254,13 @@ const EventDetailsPage = () => {
           />
         );
 
-      case "call":
+      case "call": {
+        // Check if current user is the event organizer/author
+        const organizerId =
+          eventDetails?.event?.id_organisateur || eventDetails?.id_organisateur;
+        const isAuthor =
+          currentUser && organizerId && currentUser.id === organizerId;
+
         return (
           <EventCallSection
             callForPapers={callForPapers}
@@ -1239,8 +1272,10 @@ const EventDetailsPage = () => {
             handleSubmissionChange={handleSubmissionChange}
             handleSubmitSubmission={handleSubmitSubmission}
             loading={loading}
+            isAuthor={isAuthor}
           />
         );
+      }
 
       default:
         return null;
@@ -1249,6 +1284,7 @@ const EventDetailsPage = () => {
 
   return (
     <div className="ed-page">
+      <NavBar />
       <div className="ed-shell">
         {/* TOP NAV */}
         <div className="ed-nav">

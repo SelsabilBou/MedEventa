@@ -1,24 +1,19 @@
 import React, { useState, useEffect } from "react";
 import "./ParticipantDashboard.css";
+import DashboardLayout from "./DashboardLayout";
 import {
   FiClipboard,
   FiCalendar,
   FiBarChart2,
   FiAward,
-  FiHome,
-  FiUser,
-  FiLogOut,
-  FiMenu,
-  FiX,
 } from "react-icons/fi";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const ParticipantDashboard = () => {
   const rawUser = localStorage.getItem("user");
   const user = rawUser ? JSON.parse(rawUser) : null;
   const token = localStorage.getItem("token");
   const navigate = useNavigate();
-  const location = useLocation();
 
   // State for counts
   const [counts, setCounts] = useState({
@@ -28,7 +23,6 @@ const ParticipantDashboard = () => {
     programmes: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Fetch all counts from backend
   useEffect(() => {
@@ -124,59 +118,6 @@ const ParticipantDashboard = () => {
     fetchDashboardStats();
   }, [user?.id, token]);
 
-  // Navigation menu items
-  const navItems = [
-    {
-      id: "dashboard",
-      label: "Dashboard",
-      icon: <FiClipboard />,
-      path: "/participant/dashboard",
-      active: location.pathname === "/participant/dashboard",
-      count: counts.registrations,
-    },
-    {
-      id: "registrations",
-      label: "Registrations",
-      icon: <FiClipboard />,
-      path: "/participant/registrations",
-      active: location.pathname === "/participant/registrations",
-      count: counts.registrations,
-    },
-    {
-      id: "programme",
-      label: "Programmes",
-      icon: <FiCalendar />,
-      path: "/participant/programme",
-      active: location.pathname === "/participant/programme",
-      count: counts.programmes,
-    },
-    {
-      id: "surveys",
-      label: "Surveys",
-      icon: <FiBarChart2 />,
-      path: "/participant/surveys",
-      active: location.pathname === "/participant/surveys",
-      count: counts.surveys,
-    },
-    {
-      id: "certificates",
-      label: "Certificates",
-      icon: <FiAward />,
-      path: "/participant/certificates",
-      active: location.pathname === "/participant/certificates",
-      count: counts.certificates,
-    },
-  ];
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
-  };
-
-  const handleHome = () => {
-    navigate("/");
-  };
 
   // Card data for easier rendering
   const cards = [
@@ -233,77 +174,8 @@ const ParticipantDashboard = () => {
   ];
 
   return (
-    <div className="pd-wrapper">
-      {/* App Bar at the top */}
-      <div className="pd-appbar">
-        <div className="pd-appbar-left">
-          <button
-            className="pd-menu-toggle"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <FiX /> : <FiMenu />}
-          </button>
-          <div className="pd-appbar-brand">
-            <div className="pd-appbar-logo">ME</div>
-            <span className="pd-appbar-title">MedEventa</span>
-          </div>
-        </div>
-
-        <div className="pd-appbar-right">
-          <button type="button" className="pd-home-btn" onClick={handleHome}>
-            <FiHome className="pd-home-icon" />
-            Back to home
-          </button>
-        </div>
-      </div>
-
-      {/* Sidebar Navigation */}
-      <nav className={`pd-sidebar ${mobileMenuOpen ? "mobile-open" : ""}`}>
-        <div className="pd-sidebar-header">
-          <div className="pd-user-info">
-            <div className="pd-user-avatar">{user?.name?.charAt(0) || "U"}</div>
-            <div className="pd-user-details">
-              <span className="pd-user-name">{user?.name || "User"}</span>
-              <span className="pd-user-role">Participant</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="pd-nav-items">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`pd-nav-item ${item.active ? "active" : ""}`}
-              onClick={() => {
-                navigate(item.path);
-                setMobileMenuOpen(false);
-              }}
-            >
-              <span className="pd-nav-icon">{item.icon}</span>
-              <span className="pd-nav-label">{item.label}</span>
-              {!loading && item.count > 0 && (
-                <span className="pd-nav-count">{item.count}</span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        <div className="pd-sidebar-footer">
-          <button
-            type="button"
-            className="pd-logout-btn"
-            onClick={handleLogout}
-          >
-            <FiLogOut className="pd-logout-icon" />
-            <span>Logout</span>
-          </button>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <div className="pd-main-content">
-        <div className="pd-inner">
+    <DashboardLayout>
+      <div className="pd-inner">
           {/* Header */}
           <header className="pd-header">
             <div>
@@ -368,9 +240,8 @@ const ParticipantDashboard = () => {
               </section>
             ))}
           </div>
-        </div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 };
 
