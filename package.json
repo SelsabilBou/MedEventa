@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "concurrently": "^9.2.1",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "express-validator": "^7.2.1",
@@ -17,5 +18,21 @@
     "nodemailer": "^7.0.11",
     "pdfkit": "^0.17.2",
     "uuid": "^13.0.0"
+  },
+  "description": "le projet consiste à concevoir et développer une plateforme web complète de gestion d’événements scientifiques dans le domaine de la santé",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SelsabilBou/MedEventa.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/SelsabilBou/MedEventa/issues"
+  },
+  "homepage": "https://github.com/SelsabilBou/MedEventa#readme",
+  "devDependencies": {
+    "nodemon": "^3.1.11"
   }
 }
