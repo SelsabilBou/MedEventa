@@ -42,6 +42,7 @@ import {
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import axios from "axios";
+import { hasPermission } from "../utils/permissions";
 import "./EventDetailsPage.css";
 // Import section components
 import EventInfoSection from "./EventDetailsPage/EventInfoSection";
@@ -75,7 +76,6 @@ const EventDetailsPage = () => {
   const [workshopError, setWorkshopError] = useState("");
   const [eventRegistrationError, setEventRegistrationError] = useState("");
   const [submissionError, setSubmissionError] = useState("");
-  const [backendWorkshops, setBackendWorkshops] = useState([]);
 
   // Event Registration Modal
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
@@ -143,17 +143,39 @@ const EventDetailsPage = () => {
 
   const badgeRef = useRef(null);
 
-  // Get current user from localStorage
-  const currentUser = useMemo(() => {
-    try {
-      const raw = localStorage.getItem("user");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Get current user from API
+  useEffect(() => {
+    const fetchUser = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      try {
+        const response = await axios.get("/api/auth/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.data && response.data.user) {
+          // Normalize to frontend expected fields (name instead of nom/prenom)
+          const user = response.data.user;
+          user.name = `${user.prenom} ${user.nom}`;
+          setCurrentUser(user);
+        }
+      } catch (error) {
+        console.error("Error fetching user profile from /api/auth/me:", error);
+        // Fallback to localStorage if /api/auth/me fails (prevent breaking the page)
+        try {
+          const raw = localStorage.getItem("user");
+          if (raw) setCurrentUser(JSON.parse(raw));
+        } catch (e) {
+          console.error("LocalStorage fallback failed:", e);
+        }
+      }
+    };
+    fetchUser();
   }, []);
 
-  // Fetch event details from API to get organizer ID
+  // Fetch event details from API
   useEffect(() => {
     const fetchEventDetails = async () => {
       if (!id) return;
@@ -164,9 +186,104 @@ const EventDetailsPage = () => {
         }
       } catch (error) {
         console.error("Error fetching event details:", error);
+        // Ensure eventDetails is not null to prevent crashes
+        if (!eventDetails) {
+          setEventDetails({ id: id, titre: "Event Details", description: "" });
+        }
       }
     };
     fetchEventDetails();
+  }, [id]);
+
+  // Fetch program data (sessions and communications)
+  const [backendSessions, setBackendSessions] = useState([]);
+  useEffect(() => {
+    const fetchProgram = async () => {
+      if (!id) return;
+      try {
+        const response = await axios.get(`/api/events/${id}/program`);
+        if (response.data && response.data.sessions) {
+          setBackendSessions(response.data.sessions);
+        } else {
+          setBackendSessions([]);
+        }
+      } catch (err) {
+        console.error("Error fetching program:", err);
+        setBackendSessions([]);
+      }
+    };
+    fetchProgram();
+
+    // Listen for session creation events
+    const handleSessionCreated = (event) => {
+      if (event.detail.eventId === id) {
+        fetchProgram();
+      }
+    };
+
+    window.addEventListener('session-created', handleSessionCreated);
+    return () => window.removeEventListener('session-created', handleSessionCreated);
+  }, [id]);
+
+  // Fetch workshops from backend
+  const [backendWorkshops, setBackendWorkshops] = useState([]);
+  useEffect(() => {
+    const fetchWorkshops = async () => {
+      if (!id) return;
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get(`/api/events/${id}/workshops`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        console.log('Workshops API Response:', response.data);
+        if (response.data && Array.isArray(response.data)) {
+          // Map backend workshop format to frontend expected format
+          const mappedWorkshops = response.data.map(w => ({
+            id: w.id,
+            _id: w.id.toString(),
+            title: w.titre,
+            trainer: w.responsable_nom ? `${w.responsable_prenom} ${w.responsable_nom}` : 'Workshop Leader',
+            time: w.date ? new Date(w.date).toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            }) : 'TBA',
+            room: w.salle || 'TBA',
+            day: w.date ? new Date(w.date).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            }) : 'TBA',
+            capacity: w.nb_places || 30,
+            registeredCount: w.registered_count || 0,
+            level: w.level || 'Intermediate',
+            description: w.description || 'Workshop session',
+            price: w.price || 0,
+            ouvert: w.ouvert !== undefined ? w.ouvert : true
+          }));
+          console.log('Mapped Workshops:', mappedWorkshops);
+          setBackendWorkshops(mappedWorkshops);
+        } else {
+          setBackendWorkshops([]);
+        }
+      } catch (err) {
+        console.error('Error fetching workshops:', err);
+        setBackendWorkshops([]);
+      }
+    };
+    fetchWorkshops();
+
+    // Listen for workshop creation events
+    const handleWorkshopCreated = (event) => {
+      if (event.detail.eventId === id) {
+        fetchWorkshops();
+      }
+    };
+
+    window.addEventListener('workshop-created', handleWorkshopCreated);
+    return () => window.removeEventListener('workshop-created', handleWorkshopCreated);
   }, [id]);
 
   // Auto-fill form with user data if available
@@ -207,62 +324,7 @@ const EventDetailsPage = () => {
     }
   }, [activeSection, id, fetchQuestions]);
 
-  // Fetch workshops from backend
-  useEffect(() => {
-    const fetchWorkshops = async () => {
-      if (!id) return;
 
-      try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get(`/api/events/${id}/workshops`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (response.data && Array.isArray(response.data)) {
-          // Map backend workshop structure to frontend format
-          const mappedWorkshops = response.data.map((w) => ({
-            id: w.id,
-            _id: w.id.toString(),
-            title: w.titre || w.title,
-            trainer:
-              w.responsable_nom && w.responsable_prenom
-                ? `${w.responsable_prenom} ${w.responsable_nom}`
-                : w.trainer || "TBA",
-            time: w.date
-              ? new Date(w.date).toLocaleTimeString("en-US", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: true,
-                })
-              : "TBA",
-            room: w.room || "TBA",
-            day: w.date
-              ? `Day ${
-                  Math.floor(
-                    (new Date(w.date) -
-                      new Date(event?.startDate || Date.now())) /
-                      (1000 * 60 * 60 * 24)
-                  ) + 1
-                }`
-              : "Day 1",
-            capacity: w.nb_places || 0,
-            registeredCount: w.registeredCount || 0,
-            level: w.level || "Intermediate",
-            description: w.description || "",
-          }));
-          setBackendWorkshops(mappedWorkshops);
-        }
-      } catch (error) {
-        console.error("Error fetching workshops:", error);
-        // If fetch fails, continue with demo data (fallback)
-        setBackendWorkshops([]);
-      }
-    };
-
-    fetchWorkshops();
-  }, [id, event?.startDate]);
 
   // Submit a question
   const handleSubmitQuestion = async (e) => {
@@ -344,9 +406,9 @@ const EventDetailsPage = () => {
           prev.map((q) =>
             q.id === questionId
               ? {
-                  ...q,
-                  likes: response.data.totals?.likes || (q.likes || 0) + 1,
-                }
+                ...q,
+                likes: response.data.totals?.likes || (q.likes || 0) + 1,
+              }
               : q
           )
         );
@@ -453,39 +515,14 @@ const EventDetailsPage = () => {
     }
   }, [questions, questionSort]);
 
-  if (!event) {
-    return (
-      <div className="ed-page">
-        <div className="ed-shell">
-          <div className="ed-nav">
-            <button
-              className="ed-back-btn"
-              type="button"
-              onClick={() => navigate("/events")}
-            >
-              <FaArrowLeft /> Back to events
-            </button>
-          </div>
-          <div className="ed-empty">
-            <h1 className="ed-empty-title">Event not found</h1>
-            <p className="ed-empty-text">
-              No event data was provided for id {id}. Please return to the event
-              list.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const { startDate, endDate } = event;
+  const { startDate, endDate } = event || {};
 
   // Demo data for missing sections
-  const eventInfo = event.info || {
-    title: event.name,
-    description: event.description,
+  const eventInfo = event?.info || {
+    title: event?.name,
+    description: event?.description,
     dates: `${startDate} - ${endDate}`,
-    location: event.location || "Paris Convention Center",
+    location: event?.location || "Paris Convention Center",
     address: "1 Avenue de la Convention, 75015 Paris, France",
     website: "www.medeventa-conference.com",
     contactEmail: "contact@medeventa.com",
@@ -498,8 +535,10 @@ const EventDetailsPage = () => {
   // Call for Communications data
   const callForPapers = {
     title: "Call for Communications",
-    deadline: "March 15, 2024",
-    notificationDate: "April 15, 2024",
+    deadline: eventDetails?.event?.date_limite_communication
+      ? new Date(eventDetails.event.date_limite_communication).toLocaleDateString()
+      : "Coming Soon",
+    notificationDate: "TBA",
     guidelines: [
       "Abstracts must be submitted in English or French",
       "Maximum 300 words for abstract",
@@ -509,232 +548,137 @@ const EventDetailsPage = () => {
       "Accepted abstracts will be published in the conference proceedings",
     ],
     topics: [
-      "Clinical Research and Trials",
-      "Medical Education and Training",
-      "Healthcare Technology and Innovation",
-      "Public Health and Epidemiology",
-      "Medical Ethics and Law",
-      "Interdisciplinary Approaches in Medicine",
+      "Scientific Research",
+      "Innovation in Healthcare",
+      "Medical Education",
     ],
     contact: {
       name: "Scientific Committee",
-      email: "papers@medeventa.com",
-      phone: "+33 1 23 45 67 90",
+      email: eventDetails?.event?.contact || "contact@medeventa.com",
+      phone: "TBA",
     },
   };
 
-  const committeeMembers = event.committee || [
-    {
-      id: 1,
-      name: "Prof. Marie Laurent",
-      role: "Committee President",
-      organisation: "University Hospital of Paris",
-      specialty: "Neurology",
-    },
-    {
-      id: 2,
-      name: "Dr. Jean-Marc Dubois",
-      role: "Scientific Coordinator",
-      organisation: "Medical Research Institute",
-      specialty: "Cardiology",
-    },
-    {
-      id: 3,
-      name: "Dr. Sophie Bernard",
-      role: "Educational Manager",
-      organisation: "Lyon Medical School",
-      specialty: "Pediatrics",
-    },
-    {
-      id: 4,
-      name: "Prof. Thomas Moreau",
-      role: "Committee Member",
-      organisation: "Bordeaux University Hospital",
-      specialty: "Surgery",
-    },
-  ];
+  const committeeMembers = eventDetails?.comite || [];
 
-  const guests = event.guests || [
-    {
-      id: 1,
-      name: "Prof. Michael Johnson",
-      title: "Keynote Speaker",
-      organisation: "Harvard Medical School",
-      country: "USA",
-      talkTitle: "Future of Personalized Medicine",
-    },
-    {
-      id: 2,
-      name: "Dr. Elena Rossi",
-      title: "Invited Professor",
-      organisation: "University of Milan",
-      country: "Italy",
-      talkTitle: "AI in Diagnostic Imaging",
-    },
-    {
-      id: 3,
-      name: "Dr. Kenji Tanaka",
-      title: "Guest Researcher",
-      organisation: "Tokyo University Hospital",
-      country: "Japan",
-      talkTitle: "Advances in Robotic Surgery",
-    },
-  ];
+  const guests = eventDetails?.invites || [];
 
-  const summaryContent = event.summary || {
-    abstract: `The MEDEVENTA 2024 Congress brings together healthcare professionals, researchers, and innovators from around the world to share the latest advances in medicine. This edition focuses on the digital transformation of healthcare, artificial intelligence applied to diagnostics, and new personalized therapies.
-
-    The program includes: plenary conferences, practical workshops, poster sessions, and round tables with international experts. An essential event to stay at the forefront of medical innovation.`,
+  const summaryContent = event?.summary || {
+    abstract: eventDetails?.event?.description || `The MEDEVENTA congress brings together healthcare professionals, researchers, and innovators.`,
     objectives: [
       "Share the latest scientific and clinical advances",
       "Facilitate exchanges between healthcare professionals",
       "Present technological innovations in medicine",
-      "Develop international collaboration networks",
-      "Provide continuing medical education credits",
     ],
     targetAudience: [
       "Doctors of all specialties",
       "Surgeons",
       "Medical science researchers",
-      "Medical students",
-      "Healthcare industry professionals",
-      "Healthcare facility managers",
     ],
   };
 
+  // Generate days array from event start and end dates
+  const days = useMemo(() => {
+    if (!eventDetails?.date_debut || !eventDetails?.date_fin) {
+      return ['Day 1'];
+    }
+
+    const start = new Date(eventDetails.date_debut);
+    const end = new Date(eventDetails.date_fin);
+    const daysList = [];
+
+    const currentDate = new Date(start);
+    while (currentDate <= end) {
+      daysList.push(currentDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return daysList.length > 0 ? daysList : ['Day 1'];
+  }, [eventDetails]);
+  const activeDay = days[activeDayIndex] || days[0];
+
   // Enhanced program data with registration functionality
-  const conferences = event.conferences || [
-    {
-      id: 1,
-      title: "The Post‑Cloud Era in Healthcare",
-      speaker: "Dr. Aris Thorne",
-      time: "10:00 AM - 11:30 AM",
-      room: "Emerald Hall",
-      day: "Day 1",
-      type: "plenary",
-      description:
-        "Discussion on cloud computing's impact on medical data management and patient care.",
-    },
-    {
-      id: 2,
-      title: "Scaling Healthcare Systems to 10M Users",
-      speaker: "Marcus Chen",
-      time: "03:00 PM - 04:30 PM",
-      room: "Emerald Hall",
-      day: "Day 1",
-      type: "keynote",
-      description:
-        "Architectural considerations for large-scale healthcare platforms.",
-    },
-    {
-      id: 3,
-      title: "AI and Machine Learning in Diagnostics",
-      speaker: "Dr. Elena Rossi",
-      time: "09:00 AM - 10:30 AM",
-      room: "Sapphire Room",
-      day: "Day 2",
-      type: "plenary",
-      description: "Latest developments in AI-powered diagnostic tools.",
-    },
-  ];
+  // Old mock data for conferences removed in favor of dynamic generation below
 
   // Use backend workshops if available, otherwise fall back to demo data
   const workshops =
     backendWorkshops.length > 0
       ? backendWorkshops
-      : event.workshops || [
-          {
-            id: 1,
-            _id: "workshop1",
-            title: "Design as a Competitive Edge in Medical Devices",
-            trainer: "Elena Rodriguez",
-            time: "11:30 AM - 01:00 PM",
-            room: "Studio B",
-            day: "Day 1",
-            capacity: 30,
-            registeredCount: 15,
-            level: "Intermediate",
-            description:
-              "Hands-on workshop focusing on user-centered design in medical device development.",
-          },
-          {
-            id: 2,
-            _id: "workshop2",
-            title: "Hands-on Surgical Robotics",
-            trainer: "Dr. Kenji Tanaka",
-            time: "02:00 PM - 05:00 PM",
-            room: "Lab 3",
-            day: "Day 2",
-            capacity: 15,
-            registeredCount: 8,
-            level: "Advanced",
-            description:
-              "Practical session with state-of-the-art surgical robotics equipment.",
-          },
-          {
-            id: 3,
-            _id: "workshop3",
-            title: "Medical Data Visualization Techniques",
-            trainer: "Dr. Sarah Johnson",
-            time: "09:00 AM - 12:00 PM",
-            room: "Studio A",
-            day: "Day 1",
-            capacity: 25,
-            registeredCount: 20,
-            level: "Beginner",
-            description:
-              "Learn how to effectively visualize complex medical data for clinical decision making.",
-          },
-        ];
+      : event?.workshops || [
+        {
+          id: 1,
+          _id: "workshop1",
+          title: "Design as a Competitive Edge in Medical Devices",
+          trainer: "Elena Rodriguez",
+          time: "11:30 AM - 01:00 PM",
+          room: "Studio B",
+          day: "Feb 15, 2026",
+          capacity: 30,
+          registeredCount: 15,
+          level: "Intermediate",
+          description:
+            "Hands-on workshop focusing on user-centered design in medical device development.",
+        },
+        {
+          id: 2,
+          _id: "workshop2",
+          title: "Hands-on Surgical Robotics",
+          trainer: "Dr. Kenji Tanaka",
+          time: "02:00 PM - 05:00 PM",
+          room: "Lab 3",
+          day: "Feb 16, 2026",
+          capacity: 15,
+          registeredCount: 8,
+          level: "Advanced",
+          description:
+            "Practical session with state-of-the-art surgical robotics equipment.",
+        },
+        {
+          id: 3,
+          _id: "workshop3",
+          title: "Medical Data Visualization Techniques",
+          trainer: "Dr. Sarah Johnson",
+          time: "09:00 AM - 12:00 PM",
+          room: "Studio A",
+          day: "Feb 15, 2026",
+          capacity: 25,
+          registeredCount: 20,
+          level: "Beginner",
+          description:
+            "Learn how to effectively visualize complex medical data for clinical decision making.",
+        },
+      ];
 
-  const sessions = event.sessions || [
-    {
-      id: 1,
-      _id: "session1",
-      title: "Poster session: Neuroscience Advances",
-      chair: "Dr. Sara N.",
-      time: "09:00 AM - 11:00 AM",
-      room: "Poster Hall",
-      day: "Day 2",
-      type: "poster",
-      count: "45 posters",
-      capacity: 100,
-      registeredCount: 65,
-      description:
-        "Interactive poster session showcasing the latest neuroscience research.",
-    },
-    {
-      id: 2,
-      _id: "session2",
-      title: "Roundtable: Ethics in Digital Health",
-      chair: "Prof. Marie Laurent",
-      time: "04:00 PM - 05:30 PM",
-      room: "Conference Room A",
-      day: "Day 1",
-      type: "roundtable",
-      participants: "8 experts",
-      capacity: 50,
-      registeredCount: 32,
-      description:
-        "Expert discussion on ethical considerations in digital health implementation.",
-    },
-    {
-      id: 3,
-      _id: "session3",
-      title: "Clinical Trials Workshop",
-      chair: "Dr. Robert Chen",
-      time: "02:00 PM - 03:30 PM",
-      room: "Conference Room B",
-      day: "Day 2",
-      type: "workshop",
-      capacity: 40,
-      registeredCount: 28,
-      description:
-        "Practical guidance on designing and conducting clinical trials.",
-    },
-  ];
+  const sessions = backendSessions.map(s => ({
+    id: s.id,
+    _id: s.id.toString(),
+    title: s.titre,
+    chair: s.president_id || "Scientific Chair",
+    time: s.horaire ? new Date(s.horaire).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }) : "TBA",
+    room: s.salle || "TBA",
+    day: s.horaire && eventDetails?.date_debut
+      ? new Date(s.horaire).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
+      : days[0] || 'Day 1',
+    type: "plenary",
+    capacity: 50,
+    registeredCount: 0,
+    description: `Scientific session on ${s.titre}`,
+    communications: s.communications || []
+  }));
 
-  const speakers = event.speakers || [
+  const speakers = event?.speakers || [
     {
       id: 1,
       name: "Dr. Aris Thorne",
@@ -769,22 +713,13 @@ const EventDetailsPage = () => {
     },
   ];
 
-  const days = Array.from(
-    new Set([
-      ...conferences.map((c) => c.day),
-      ...workshops.map((w) => w.day),
-      ...sessions.map((s) => s.day),
-    ])
-  );
-  const activeDay = days[activeDayIndex] || days[0];
 
   const paymentStatus =
     inscriptionData?.paymentStatus ||
     (paymentMethod === "onsite" ? "a_payer" : "a_payer");
 
-  const badgeCode = `MEDE-${paymentStatus === "a_payer" ? "NP" : "OK"}-${
-    (inscriptionData?.fullName || currentUser?.name || "G")[0] || "G"
-  }`.toUpperCase();
+  const badgeCode = `MEDE-${paymentStatus === "a_payer" ? "NP" : "OK"}-${(inscriptionData?.fullName || currentUser?.name || "G")[0] || "G"
+    }`.toUpperCase();
 
   // Handle submission form changes
   const handleSubmissionChange = (e) => {
@@ -814,11 +749,14 @@ const EventDetailsPage = () => {
   const handleSubmitSubmission = async (e) => {
     e.preventDefault();
 
-    // Check if user is the event organizer/author
+    // Check if user has permission to submit or is the event organizer
     const organizerId =
       eventDetails?.event?.id_organisateur || eventDetails?.id_organisateur;
-    if (!currentUser || !organizerId || currentUser.id !== organizerId) {
-      setSubmissionError("Only the event author can submit submissions.");
+    const isOrganizer = currentUser && organizerId && currentUser.id === organizerId;
+    const canSubmit = hasPermission(currentUser, 'submit_communication') || isOrganizer;
+
+    if (!canSubmit) {
+      setSubmissionError("You don't have permission to submit to this event.");
       return;
     }
 
@@ -884,7 +822,7 @@ const EventDetailsPage = () => {
       console.error("Submission error:", error);
       setSubmissionError(
         error.response?.data?.message ||
-          "Failed to submit abstract. Please try again."
+        "Failed to submit abstract. Please try again."
       );
     } finally {
       setLoading(false);
@@ -893,9 +831,10 @@ const EventDetailsPage = () => {
 
   // Handle workshop registration
   const handleWorkshopRegister = (workshop) => {
-    if (currentUser?.role !== "participant") {
+    setSelectedWorkshop(workshop);
+    if (currentUser?.role?.toUpperCase() !== "PARTICIPANT") {
       setWorkshopError("Only participants can register for workshops.");
-      setTimeout(() => setWorkshopError(""), 5000);
+      setShowWorkshopModal(true);
       return;
     }
     setSelectedWorkshop(workshop);
@@ -905,9 +844,10 @@ const EventDetailsPage = () => {
 
   // Handle session registration
   const handleSessionRegister = (session) => {
-    if (currentUser?.role !== "participant") {
+    setSelectedSession(session);
+    if (currentUser?.role?.toUpperCase() !== "PARTICIPANT") {
       setWorkshopError("Only participants can register for sessions.");
-      setTimeout(() => setWorkshopError(""), 5000);
+      setShowSessionModal(true);
       return;
     }
     setSelectedSession(session);
@@ -952,15 +892,12 @@ const EventDetailsPage = () => {
 
         // Trigger dashboard update event with registration data
         const registrationData = {
-          id: Date.now(),
+          id: response.data.registrationId,
           type: "Workshop",
           title: selectedWorkshop.title,
           parent: event.name,
           place: selectedWorkshop.room || event.location || "",
-          date:
-            selectedWorkshop.day ||
-            event.startDate ||
-            new Date().toLocaleDateString(),
+          date: selectedWorkshop.day ? new Date(selectedWorkshop.day).toISOString() : new Date().toISOString(),
           status: "confirmed",
           paymentStatus: "a_payer",
         };
@@ -1109,10 +1046,15 @@ const EventDetailsPage = () => {
     try {
       const token = localStorage.getItem("token");
 
-      // Register the user for the event
+      // Register the user for the event - ensure uppercase role and correct data
       const response = await axios.post(
         `/api/inscriptions/register/${id}`,
-        { profil: "participant" }, // Backend expects profil field
+        {
+          profil: (currentUser?.role || "PARTICIPANT").toUpperCase(),
+          nom: currentUser?.nom || fullName,
+          prenom: currentUser?.prenom || fullName.split(' ')[0],
+          email: currentUser?.email || email
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1129,10 +1071,10 @@ const EventDetailsPage = () => {
           setProcessingPayment(true);
 
           try {
-            // Update payment status using the correct endpoint
+            // Update payment status using the correct endpoint and value
             const updateResponse = await axios.put(
               `/api/inscriptions/${inscriptionId}/payment-status`,
-              { status: "payeenligne" }, // Backend expects status field
+              { statut_paiement: "paye_en_ligne" },
               {
                 headers: {
                   Authorization: `Bearer ${token}`,
@@ -1156,14 +1098,14 @@ const EventDetailsPage = () => {
 
               // Trigger dashboard update with registration data
               const dashboardData = {
-                id: Date.now(),
+                id: inscriptionId, // Use real ID
                 type: "Event",
                 title: event.name,
                 parent: "",
                 place: event.location || "",
-                date: event.startDate || new Date().toLocaleDateString(),
+                date: event.startDate ? new Date(event.startDate).toISOString() : new Date().toISOString(),
                 status: "confirmed",
-                paymentStatus: "payeenligne",
+                paymentStatus: "paye_en_ligne",
               };
 
               window.dispatchEvent(
@@ -1176,7 +1118,7 @@ const EventDetailsPage = () => {
             console.error("Payment processing error:", paymentError);
             setEventRegistrationError(
               paymentError.response?.data?.message ||
-                "Payment processing failed. Please try again or contact support."
+              "Payment processing failed. Please try again or contact support."
             );
             setProcessingPayment(false);
             setLoading(false);
@@ -1197,12 +1139,12 @@ const EventDetailsPage = () => {
 
           // Trigger dashboard update with registration data
           const dashboardData = {
-            id: Date.now(),
+            id: inscriptionId, // Use real ID
             type: "Event",
             title: event.name,
             parent: "",
             place: event.location || "",
-            date: event.startDate || new Date().toLocaleDateString(),
+            date: event.startDate ? new Date(event.startDate).toISOString() : new Date().toISOString(),
             status: "confirmed",
             paymentStatus: "a_payer",
           };
@@ -1218,7 +1160,7 @@ const EventDetailsPage = () => {
       console.error("Registration error:", error);
       setEventRegistrationError(
         error.response?.data?.message ||
-          "Registration failed. Please try again."
+        "Registration failed. Please try again."
       );
     } finally {
       setLoading(false);
@@ -1251,9 +1193,25 @@ const EventDetailsPage = () => {
   ];
 
   // Filtered data based on program filter
+  // Generate "conferences" based on the event details (one per day or just one main one)
+  // The user wants "all the conferences... with the same name of event"
+  const conferences = useMemo(() => {
+    if (!event || !days) return [];
+    return days.map((day, index) => ({
+      id: `conf-${index}`,
+      title: event.name, // "same name of event"
+      time: "09:00 AM - 05:00 PM", // Default time or derive from event
+      room: event.location || "Main Hall",
+      description: event.description,
+      day: day, // Associate with each day
+      speaker: "Various Speakers",
+      type: "Conference"
+    }));
+  }, [event, days]);
+
   const filteredConferences = conferences.filter((c) => c.day === activeDay);
-  const filteredWorkshops = workshops.filter((w) => w.day === activeDay);
-  const filteredSessions = sessions.filter((s) => s.day === activeDay);
+  const filteredWorkshops = backendWorkshops.filter((w) => w.day === activeDay);
+  const filteredSessions = backendSessions.filter((s) => s.day === activeDay);
 
   // Determine what to show based on filter
   const showConferences =
@@ -1336,8 +1294,10 @@ const EventDetailsPage = () => {
         // Check if current user is the event organizer/author
         const organizerId =
           eventDetails?.event?.id_organisateur || eventDetails?.id_organisateur;
-        const isAuthor =
+        const isOrganizer =
           currentUser && organizerId && currentUser.id === organizerId;
+        const isAuthor =
+          isOrganizer || hasPermission(currentUser, "submit_communication");
 
         return (
           <EventCallSection
@@ -1359,6 +1319,31 @@ const EventDetailsPage = () => {
         return null;
     }
   };
+
+  if (!event) {
+    return (
+      <div className="ed-page">
+        <div className="ed-shell">
+          <div className="ed-nav">
+            <button
+              className="ed-back-btn"
+              type="button"
+              onClick={() => navigate("/events")}
+            >
+              <FaArrowLeft /> Back to events
+            </button>
+          </div>
+          <div className="ed-empty">
+            <h1 className="ed-empty-title">Event not found</h1>
+            <p className="ed-empty-text">
+              No event data was provided for id {id}. Please return to the event
+              list.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="ed-page">
@@ -1440,9 +1425,8 @@ const EventDetailsPage = () => {
               <button
                 key={section.id}
                 type="button"
-                className={`ed-section-nav-btn ${
-                  activeSection === section.id ? "active" : ""
-                }`}
+                className={`ed-section-nav-btn ${activeSection === section.id ? "active" : ""
+                  }`}
                 onClick={() => setActiveSection(section.id)}
               >
                 {section.icon}
@@ -1644,9 +1628,8 @@ const EventDetailsPage = () => {
                   </h4>
                   <div className="ed-payment-options">
                     <div
-                      className={`ed-payment-option ${
-                        paymentMethod === "online" ? "active" : ""
-                      }`}
+                      className={`ed-payment-option ${paymentMethod === "online" ? "active" : ""
+                        }`}
                       onClick={() => setPaymentMethod("online")}
                     >
                       <div className="ed-payment-icon">
@@ -1662,9 +1645,8 @@ const EventDetailsPage = () => {
                     </div>
 
                     <div
-                      className={`ed-payment-option ${
-                        paymentMethod === "onsite" ? "active" : ""
-                      }`}
+                      className={`ed-payment-option ${paymentMethod === "onsite" ? "active" : ""
+                        }`}
                       onClick={() => setPaymentMethod("onsite")}
                     >
                       <div className="ed-payment-icon">
@@ -1793,10 +1775,10 @@ const EventDetailsPage = () => {
                       {processingPayment
                         ? "Processing Payment..."
                         : loading
-                        ? "Processing..."
-                        : paymentMethod === "online"
-                        ? "Pay €150.00 & Register"
-                        : "Confirm Registration"}
+                          ? "Processing..."
+                          : paymentMethod === "online"
+                            ? "Pay €150.00 & Register"
+                            : "Confirm Registration"}
                     </button>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 const db = require('../db');
 const { validationResult } = require('express-validator');
-const { createSession , assignCommunication , getProgram ,getDetailedProgram,updateSession, } = require('../models/session.model');
+const { createSession, assignCommunication, getProgram, getDetailedProgram, updateSession, } = require('../models/session.model');
 
 const createSessionController = (req, res) => {
   const errors = validationResult(req);
@@ -13,18 +13,18 @@ const createSessionController = (req, res) => {
 
   const eventId = req.params.eventId;
   const { titre, horaire, salle, president_id } = req.body;
-  
+
   // 🔥 PROTECTION : vérifier req.user existe
   if (!req.user || !req.user.id) {
     return res.status(401).json({ message: 'Utilisateur non authentifié' });
   }
-  
+
   const userId = req.user.id;
 
   const checkOrganizerSql = `
     SELECT id_organisateur FROM evenement WHERE id = ?
   `;
-  
+
   db.query(checkOrganizerSql, [eventId], (err, results) => {
     if (err) {
       return res.status(500).json({ message: 'Erreur serveur' });
@@ -266,5 +266,20 @@ const updateSessionController = (req, res) => {
     });
   });
 };
-module.exports = { createSessionController ,assignCommunicationController,getProgramController,
-  getDetailedProgramController,updateSessionController,};
+
+// GET /api/sessions/my-interventions
+const listMyInterventions = (req, res) => {
+  const userId = req.user.id;
+  require('../models/session.model').getInterventionsByUser(userId, (err, rows) => {
+    if (err) {
+      console.error('Erreur listMyInterventions:', err);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+    res.json(rows);
+  });
+};
+
+module.exports = {
+  createSessionController, assignCommunicationController, getProgramController,
+  getDetailedProgramController, updateSessionController, listMyInterventions,
+};

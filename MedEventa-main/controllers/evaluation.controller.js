@@ -296,6 +296,25 @@ const listReports = (req, res) => {
   );
 };
 
+
+
+// PHASE 5: Get assignments for logged-in committee member
+const getMyAssignments = (req, res) => {
+  const userId = req.user.id;
+
+  // Need to import this function at the top or use require inside (but top is better)
+  // assuming I update imports in next step or use require inline if needed, but clean is better
+  // Let's use the one imported at top (I need to update top imports)
+
+  require('../models/evaluation.model').getAssignmentsByUser(userId, (err, rows) => {
+    if (err) {
+      console.error('Erreur getMyAssignments:', err);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+    res.json(rows);
+  });
+};
+
 module.exports = {
   assignManually,
   getEvaluationFormController,
@@ -303,4 +322,5 @@ module.exports = {
   generateReportController,
   listEvaluations,
   listReports,
+  getMyAssignments,
 };

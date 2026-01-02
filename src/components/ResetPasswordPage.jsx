@@ -1,16 +1,50 @@
-import React from "react";
+import React, { useState } from "react";
 import "./ResetPassword.css";
-import { FaKey, FaCheckCircle } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { FaKey, FaCheckCircle, FaEnvelope, FaShieldAlt } from "react-icons/fa";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [email, setEmail] = useState(location.state?.email || "");
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: add real reset logic / API
-    alert("Password updated (demo).");
-    navigate("/login");
+
+    if (newPassword !== confirmPassword) {
+      alert("Passwords do not match.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          code: code.trim(),
+          nouveau_mot_de_passe: newPassword
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        alert("Password updated successfully!");
+        navigate("/login");
+      } else {
+        alert(data.message || "Failed to reset password.");
+      }
+    } catch (error) {
+      console.error("Reset password error:", error);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleBackToLogin = () => {
@@ -53,18 +87,35 @@ const ResetPasswordPage = () => {
         <div className="reset-right">
           <h2 className="reset-right-title">Reset Password</h2>
           <p className="reset-right-subtitle">
-            Please enter your current and new credentials.
+            Enter the verification code sent to your email and your new password.
           </p>
 
           <form className="reset-form" onSubmit={handleSubmit}>
             <div className="reset-field-group">
-              <label className="reset-label">Current password</label>
+              <label className="reset-label">Registered Email</label>
               <div className="reset-input-wrapper">
-                <FaKey className="reset-input-icon" />
+                <FaEnvelope className="reset-input-icon" />
                 <input
-                  type="password"
+                  type="email"
                   className="reset-input"
-                  placeholder="Current password"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="reset-field-group">
+              <label className="reset-label">Verification Code</label>
+              <div className="reset-input-wrapper">
+                <FaShieldAlt className="reset-input-icon" />
+                <input
+                  type="text"
+                  className="reset-input"
+                  placeholder="6-digit code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
                   required
                 />
               </div>
@@ -78,7 +129,10 @@ const ResetPasswordPage = () => {
                   type="password"
                   className="reset-input"
                   placeholder="Enter new password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
                   required
+                  autoComplete="new-password"
                 />
               </div>
             </div>
@@ -91,19 +145,17 @@ const ResetPasswordPage = () => {
                   type="password"
                   className="reset-input"
                   placeholder="Re‑type new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required
+                  autoComplete="new-password"
                 />
               </div>
             </div>
 
-            <button type="submit" className="reset-submit-large">
-              UPDATE SECURITY CREDENTIALS
+            <button type="submit" className="reset-submit-large" disabled={isLoading}>
+              {isLoading ? "UPDATING..." : "UPDATE SECURITY CREDENTIALS"}
             </button>
-
-            <div className="reset-meta">
-              <span className="reset-meta-label">Last changed:</span>
-              <span className="reset-meta-value">3 months ago</span>
-            </div>
 
             <button
               type="button"

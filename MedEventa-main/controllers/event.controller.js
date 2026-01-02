@@ -104,11 +104,12 @@ const getEventsController = (req, res) => {
 
   getEvents(status, (err, events) => {
     if (err) {
+      console.error("GET /api/events ERROR:", err); // Added logging
       return res
         .status(500)
-        .json({ message: 'Erreur lors de la récupération des événements' });
+        .json({ message: 'Erreur lors de la récupération des événements', error: err.message }); // Return error details
     }
-    res.json({ events });
+    res.json(events); // Return array directly
   });
 };
 

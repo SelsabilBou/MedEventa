@@ -27,20 +27,23 @@ app.use((req, res, next) => {
 });
 
 // Pour parser le JSON -> AVANT toutes les routes
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Routes principales
 app.use("/api/auth", authRoutes);
-app.use("/api/events", eventRoutes);
+app.use("/api/events", statsRoutes); // mount stats under /api/events
 app.use("/api/events", workshopRoutes); // mount workshops under /api/events
-app.use("/api", sessionRoutes); // => POST /api/events/:eventId/sessions/create
+app.use("/api/events", submissionRoutes); // mount submissions under /api/events
+app.use("/api/events", eventRoutes); // eventRoutes last because it has generic /:id
+app.use("/api", sessionRoutes);
 app.use("/api/inscriptions", inscriptionRoutes);
-app.use("/api/events", submissionRoutes);
 app.use("/api/evaluations", evaluationRoutes);
-app.use("/api", questionRoutes); // => POST /api/events/:eventId/questions/submit
+app.use("/api", questionRoutes);
 app.use("/api", surveyRoutes);
 app.use("/api", messageRoutes);
 app.use("/api", notificationRoutes);
+app.use("/api/attestations", attestationRoutes);
 
 // Route profil protégée
 app.get("/api/profile", verifyToken, (req, res) => {

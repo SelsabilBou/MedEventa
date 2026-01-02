@@ -19,6 +19,28 @@ const createWorkshopValidator = [
   body('nb_places')
     .isInt({ min: 1 })
     .withMessage('nb_places doit être un entier >= 1'),
+
+  body('description')
+    .optional()
+    .isString(),
+
+  body('level')
+    .optional()
+    .isIn(['beginner', 'advanced'])
+    .withMessage('Le niveau doit être beginner ou advanced'),
+
+  body('price')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Le prix doit être un nombre positif'),
+
+  body('salle')
+    .optional()
+    .isString(),
+
+  body('ouvert')
+    .optional()
+    .isBoolean(),
 ];
 
 const updateWorkshopValidator = [
@@ -40,6 +62,26 @@ const updateWorkshopValidator = [
     .optional()
     .isInt({ min: 1 })
     .withMessage('nb_places doit être un entier >= 1'),
+
+  body('description')
+    .optional()
+    .isString(),
+
+  body('level')
+    .optional()
+    .isIn(['beginner', 'advanced']),
+
+  body('price')
+    .optional()
+    .isFloat({ min: 0 }),
+
+  body('salle')
+    .optional()
+    .isString(),
+
+  body('ouvert')
+    .optional()
+    .isBoolean(),
 ];
 
 module.exports = {

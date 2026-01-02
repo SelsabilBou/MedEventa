@@ -149,6 +149,7 @@ const getBadgeController = (req, res) => {
 const getParticipantsController = (req, res) => {
   const { eventId } = req.params;
   const profil = req.query.profil || null; // optionnel
+  const { getParticipants } = require('../models/inscription.model');
 
   getParticipants(eventId, profil, (err, rows) => {
     if (err) {
@@ -171,6 +172,30 @@ const getParticipantsController = (req, res) => {
   });
 };
 
+const getMyRegistrationsController = (req, res) => {
+  const userId = req.user.id;
+  const { getUserInscriptions } = require('../models/inscription.model');
+
+  getUserInscriptions(userId, (err, registrations) => {
+    if (err) {
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+    res.json({ registrations });
+  });
+};
+
+const getMyProgrammeController = (req, res) => {
+  const userId = req.user.id;
+  const { getMyProgramme } = require('../models/inscription.model');
+
+  getMyProgramme(userId, (err, programme) => {
+    if (err) {
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+    res.json({ programme });
+  });
+};
+
 module.exports = {
   validateInscription,
   register,
@@ -179,5 +204,6 @@ module.exports = {
   generateBadgeController,
   getBadgeController,
   getParticipantsController,
-
+  getMyRegistrationsController,
+  getMyProgrammeController,
 };

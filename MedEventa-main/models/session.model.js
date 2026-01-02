@@ -124,7 +124,28 @@ const updateSession = (sessionId, data, callback) => {
     }
   );
 };
+const getInterventionsByUser = (userId, callback) => {
+  const sql = `
+    SELECT s.*, e.titre as event_titre, 'chair' as role, NULL as comm_id
+    FROM session s
+    JOIN evenement e ON e.id = s.evenement_id
+    WHERE s.president_id = ?
+    
+    UNION
+    
+    SELECT s.*, e.titre as event_titre, 'speaker' as role, c.id as comm_id
+    FROM session s
+    JOIN evenement e ON e.id = s.evenement_id
+    JOIN communication c ON c.session_id = s.id
+    WHERE c.auteur_id = ?
+  `;
+  db.query(sql, [userId, userId], (err, rows) => {
+    if (err) return callback(err);
+    return callback(null, rows);
+  });
+};
+
 module.exports = {
-  createSession, assignCommunication,getProgram,
-  getDetailedProgram,updateSession,
+  createSession, assignCommunication, getProgram,
+  getDetailedProgram, updateSession, getInterventionsByUser,
 };

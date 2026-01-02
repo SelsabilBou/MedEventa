@@ -6,7 +6,7 @@ const { validationResult } = require('express-validator');
 
 const {
   createAttestation,
-  upsertAttestation, 
+  upsertAttestation,
   getAttestationByUser,
   listAttestationsByEvent
 } = require('../models/attestation.model');
@@ -20,6 +20,7 @@ const {
   hasAcceptedCommunication,
   isMembreComiteForEvent,
   isOrganisateurForEvent,
+  isGuestSpeakerForEvent,
   isEventFinished,
 } = require('../utils/attestationEligibility');
 
@@ -108,6 +109,14 @@ function checkEligibility(evenementId, utilisateurId, type, callback) {
     return isOrganisateurForEvent(evenementId, utilisateurId, (err, ok) => {
       if (err) return callback(err);
       if (!ok) return callback(null, { ok: false, reason: 'NOT_ORGANIZER' });
+      return callback(null, { ok: true });
+    });
+  }
+
+  if (type === 'invite') {
+    return isGuestSpeakerForEvent(evenementId, utilisateurId, (err, ok) => {
+      if (err) return callback(err);
+      if (!ok) return callback(null, { ok: false, reason: 'NOT_SPEAKER' });
       return callback(null, { ok: true });
     });
   }
@@ -225,7 +234,7 @@ function downloadMyAttestation(req, res) {
   const { evenementId, type } = req.query;
 
   // 0) type validate سريع (باش ما ندخلوش للـ DB بلا لازمة)
-  const allowed = ['participant', 'communicant', 'membre_comite', 'organisateur'];
+  const allowed = ['participant', 'communicant', 'membre_comite', 'organisateur', 'invite'];
   if (!allowed.includes(type)) {
     return res.status(400).json({ message: 'Type invalide', reason: 'TYPE_INVALIDE' });
   }

@@ -26,6 +26,14 @@ router.post(
   assignManually
 );
 
+// GET /api/evaluations/my-assignments
+router.get(
+  '/my-assignments',
+  verifyToken,
+  requirePermission('evaluate_communications'), // Committee members have this permission
+  require('../controllers/evaluation.controller').getMyAssignments
+);
+
 // GET /api/evaluations/evaluation/:evaluationId/form (Phase 2)
 router.get(
   '/evaluation/:evaluationId/form',
@@ -52,8 +60,9 @@ router.post(
 );
 
 // PHASE 5 – simple pagination for organiser
+// PHASE 5 – simple pagination for organiser
 router.get(
-  '/evaluations',
+  '/',
   verifyToken,
   requirePermission('manage_evaluations'),
   require('../controllers/evaluation.controller').listEvaluations

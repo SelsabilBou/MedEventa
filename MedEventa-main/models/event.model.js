@@ -81,7 +81,11 @@ const getEventDetails = (eventId, callback) => {
       `;
 
       db.query(sqlInvites, [eventId], (err3, invitesResult) => {
-        if (err3) return callback(err3);
+        if (err3) {
+          // Soft fail: log error but continue with empty invites
+          console.warn('Warning: Could not fetch invites (table might be missing), proceeding with empty list.', err3.message);
+          invitesResult = [];
+        }
 
         const sqlComite = `
           SELECT u.id, u.nom, u.prenom, u.email

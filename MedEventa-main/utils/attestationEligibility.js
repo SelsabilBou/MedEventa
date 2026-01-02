@@ -97,10 +97,32 @@ const isEventFinished = (evenementId, callback) => {
   });
 };
 
+// Guest Speaker for this event ?
+const isGuestSpeakerForEvent = (evenementId, userId, callback) => {
+  const sql = `
+    SELECT s.id
+    FROM session s
+    WHERE s.evenement_id = ? AND s.president_id = ?
+    
+    UNION
+    
+    SELECT s.id
+    FROM session s
+    JOIN communication c ON c.session_id = s.id
+    WHERE s.evenement_id = ? AND c.auteur_id = ?
+    LIMIT 1
+  `;
+  db.query(sql, [evenementId, userId, evenementId, userId], (err, rows) => {
+    if (err) return callback(err);
+    callback(null, !!(rows && rows.length));
+  });
+};
+
 module.exports = {
   isParticipantInscrit,
   hasAcceptedCommunication,
   isMembreComiteForEvent,
   isOrganisateurForEvent,
+  isGuestSpeakerForEvent,
   isEventFinished,
 };

@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import "./Login.css";
+import axios from "axios";
 import { auth, googleProvider } from "./firebase";
-import { signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithPopup } from "firebase/auth";
 import { FaGoogle, FaEye, FaEyeSlash } from "react-icons/fa";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -21,10 +22,27 @@ function LoginPage() {
   const goSignup = () => navigate("/signup");
   const goForgot = () => navigate("/forgot");
 
-  const handleLoginSuccess = () => {
-    // Redirect to returnUrl if provided, otherwise go to home
+  const handleLoginSuccess = (user) => {
+    // Redirect to returnUrl if provided
     if (returnUrl) {
       navigate(returnUrl);
+      return;
+    }
+
+    // Role-based redirection
+    const role = user.role?.toUpperCase();
+    if (role === "SUPER_ADMIN" || role === "ORGANISATEUR") {
+      navigate("/admin/dashboard");
+    } else if (role === "MEMBRE_COMITE") {
+      navigate("/committee/dashboard");
+    } else if (role === "RESP_WORKSHOP") {
+      navigate("/workshop-manager/dashboard");
+    } else if (role === "INVITE") {
+      navigate("/guest/dashboard");
+    } else if (role === "COMMUNICANT") {
+      navigate("/author/dashboard");
+    } else if (role === "PARTICIPANT") {
+      navigate("/participant/dashboard");
     } else {
       navigate("/");
     }
@@ -36,26 +54,26 @@ function LoginPage() {
     setIsLoading(true);
 
     try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      const user = result.user;
+      const response = await axios.post("/api/auth/login", {
+        email,
+        mot_de_passe: password,
+      });
 
-      const userToStore = {
-        name: user.displayName || email.split("@")[0],
-        email: user.email,
-        photoUrl: user.photoURL || "",
-      };
+      const { user, token } = response.data;
 
-      localStorage.setItem("user", JSON.stringify(userToStore));
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+
       if (rememberMe) {
         localStorage.setItem("rememberEmail", email);
       } else {
         localStorage.removeItem("rememberEmail");
       }
 
-      handleLoginSuccess();
+      handleLoginSuccess(user);
     } catch (err) {
       console.error(err);
-      setError("Incorrect email or password.");
+      setError(err.response?.data?.message || "Incorrect email or password.");
     } finally {
       setIsLoading(false);
     }
@@ -68,17 +86,30 @@ function LoginPage() {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      const userToStore = {
-        name: user.displayName || user.email.split("@")[0],
+      // Sync with backend to get proper JWT token
+      const response = await axios.post("/api/auth/social-login", {
         email: user.email,
-        photoUrl: user.photoURL || "",
-      };
+        nom: user.displayName?.split(" ")[1] || "",
+        prenom: user.displayName?.split(" ")[0] || user.email.split("@")[0],
+        photo: user.photoURL || "",
+      });
 
-      localStorage.setItem("user", JSON.stringify(userToStore));
-      handleLoginSuccess();
+      const { token, user: backendUser } = response.data;
+
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(backendUser));
+
+      handleLoginSuccess(backendUser);
     } catch (err) {
-      console.error(err);
-      setError("Google sign in failed.");
+      console.error("Google Login Error:", err);
+      console.error("Error Code:", err.code);
+      console.error("Error Message:", err.message);
+      setError(err.message || "Google sign in failed.");
+      if (err.code === "auth/network-request-failed") {
+        setError(
+          "Network error. Please check your internet connection or firewall settings."
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -190,7 +221,7 @@ function LoginPage() {
           </p>
 
           <p className="login-copy">
-            © EVENT PLATFORM 2025 - 2026 • All rights reserved.
+            © EVENT PLATFORM 2026 • All rights reserved.
           </p>
         </div>
 

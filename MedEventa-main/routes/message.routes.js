@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { sendMessage, getMessages,getDashboardActivity } = require('../controllers/message.controller');
+const { sendMessage, getMessages, getDashboardActivity, sendWorkshopBroadcast } = require('../controllers/message.controller');
 const { sendMessageValidation } = require('../validators/message.validators');
 const { verifyToken } = require('../middlewares/auth.middlewares'); // ou ton fichier auth
 
@@ -12,4 +12,8 @@ router.post('/messages/send', verifyToken, sendMessageValidation, sendMessage);
 router.get('/messages', verifyToken, getMessages);
 // Tableau de bord activité (messages + notifs + compteur)
 router.get('/dashboard/activity', verifyToken, getDashboardActivity);
+
+// Diffusion à tout un workshop
+router.post('/messages/broadcast/workshop/:workshopId', verifyToken, sendWorkshopBroadcast);
+
 module.exports = router;
