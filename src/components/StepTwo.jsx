@@ -71,6 +71,12 @@ function StepTwo({ formData, updateFormData }) {
               {showPassword ? "Hide" : "Show"}
             </button>
           </div>
+          <p
+            className="password-hint"
+            style={{ fontSize: "0.8rem", color: "#666", marginTop: "4px" }}
+          >
+            Must have at least 8 chars, 1 uppercase, 1 lowercase, and 1 number.
+          </p>
         </div>
 
         <div className="form-group">

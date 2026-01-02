@@ -1,0 +1,152 @@
+/* Admin Table Styles */
+.admin-submissions-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.table-controls {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    gap: 1.5rem;
+}
+
+.table-controls .search-input-wrapper {
+    flex: 1;
+}
+
+.filter-wrapper {
+    position: relative;
+    min-width: 200px;
+}
+
+.filter-wrapper select {
+    width: 100%;
+    padding: 0.9rem 1rem 0.9rem 2.8rem;
+    border-radius: 14px;
+    border: 1px solid rgba(93, 123, 138, 0.15);
+    background: white;
+    appearance: none;
+    font-size: 0.95rem;
+    color: #12324a;
+    outline: none;
+    cursor: pointer;
+}
+
+.filter-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #5d7b8a;
+    pointer-events: none;
+}
+
+.submissions-table-wrapper {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    overflow: hidden;
+    border: 1px solid rgba(93, 123, 138, 0.08);
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th {
+    background: #f8fafc;
+    padding: 1.25rem 1.5rem;
+    text-align: left;
+    font-size: 0.85rem;
+    color: #6c8895;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba(93, 123, 138, 0.08);
+}
+
+.admin-table td {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid rgba(93, 123, 138, 0.05);
+    color: #12324a;
+    font-size: 0.95rem;
+}
+
+.col-title {
+    font-weight: 500;
+    max-width: 300px;
+}
+
+.status-badge {
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.status-pending {
+    background: #fff8e1;
+    color: #f39c12;
+}
+
+.status-accepted {
+    background: #e6f7f1;
+    color: #0f9d8a;
+}
+
+.status-rejected {
+    background: #fff5f5;
+    color: #ff4757;
+}
+
+.status-revision {
+    background: #e1f5fe;
+    color: #0288d1;
+}
+
+.col-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-table-action {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    background: #f8fafc;
+    color: #6c8895;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-table-action:hover {
+    background: #f1f5f9;
+    color: #12324a;
+}
+
+.btn-table-action.accept:hover {
+    color: #0f9d8a;
+    border-color: #0f9d8a;
+}
+
+.btn-table-action.reject:hover {
+    color: #ff4757;
+    border-color: #ff4757;
+}
+
+.btn-table-action.revision:hover {
+    color: #0288d1;
+    border-color: #0288d1;
+}
+
+.empty-table-state {
+    padding: 4rem;
+    text-align: center;
+    color: #6c8895;
+}

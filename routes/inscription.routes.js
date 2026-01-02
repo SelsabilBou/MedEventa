@@ -10,6 +10,8 @@ const {
   generateBadgeController,
   getBadgeController,
   getParticipantsController,
+  getMyRegistrationsController,
+  getMyProgrammeController,
 } = require('../controllers/inscription.controller');
 
 const { verifyToken } = require('../middlewares/auth.middlewares');
@@ -60,6 +62,20 @@ router.get(
   verifyToken,
   requirePermission('manage_inscriptions'),
   getParticipantsController
+);
+
+// GET /api/inscriptions/my-registrations (user connecté)
+router.get(
+  '/my-registrations',
+  verifyToken,
+  getMyRegistrationsController
+);
+
+// GET /api/inscriptions/my-programme (user connecté)
+router.get(
+  '/my-programme',
+  verifyToken,
+  getMyProgrammeController
 );
 
 module.exports = router;

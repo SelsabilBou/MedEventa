@@ -1,6 +1,6 @@
 const { validationResult } = require('express-validator');
 const { createMessage, getMessagesForUser } = require('../models/message.model');
-const { getNotificationsForUser ,getUnreadCountForUser} = require('../models/notification.model');
+const { getNotificationsForUser, getUnreadCountForUser } = require('../models/notification.model');
 // POST /api/messages/send
 const sendMessage = async (req, res) => {
   try {
@@ -66,4 +66,44 @@ const getDashboardActivity = async (req, res) => {
     return res.status(500).json({ message: 'Erreur serveur lors du chargement du tableau de bord' });
   }
 };
-module.exports = { sendMessage, getMessages, getDashboardActivity };
+// POST /api/messages/broadcast/workshop/:workshopId
+const sendWorkshopBroadcast = async (req, res) => {
+  try {
+    const expediteur_id = req.user.id;
+    const { workshopId } = req.params;
+    const { contenu, evenement_id } = req.body;
+
+    if (!contenu) return res.status(400).json({ message: 'Contenu requis' });
+
+    // Récupérer les participants du workshop
+    const { listWorkshopRegistrations } = require('../models/workshopRegistration.model');
+
+    listWorkshopRegistrations(workshopId, async (err, participants) => {
+      if (err) return res.status(500).json({ message: 'Erreur lors de la récupération des participants' });
+
+      if (!participants || participants.length === 0) {
+        return res.status(400).json({ message: 'Aucun participant inscrit à ce workshop' });
+      }
+
+      // Envoyer un message à chaque participant
+      const promises = participants.map(p => createMessage(
+        expediteur_id,
+        p.utilisateur_id,
+        evenement_id || null,
+        contenu,
+        'notif'
+      ));
+
+      await Promise.all(promises);
+
+      return res.status(200).json({
+        message: `Message envoyé à ${participants.length} participants`,
+      });
+    });
+  } catch (error) {
+    console.error('Erreur sendWorkshopBroadcast:', error);
+    return res.status(500).json({ message: 'Erreur serveur lors de la diffusion du message' });
+  }
+};
+
+module.exports = { sendMessage, getMessages, getDashboardActivity, sendWorkshopBroadcast };

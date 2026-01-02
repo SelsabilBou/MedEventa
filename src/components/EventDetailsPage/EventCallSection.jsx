@@ -316,7 +316,7 @@ const EventCallSection = ({
                   <label htmlFor="submission-terms">
                     I confirm that this abstract is original work and has not
                     been published previously. I agree to the{" "}
-                    <a href="#">terms and conditions</a>.
+                    <a href="#" onClick={(e) => e.preventDefault()}>terms and conditions</a>.
                   </label>
                 </div>
 

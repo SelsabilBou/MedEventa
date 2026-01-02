@@ -1,6 +1,7 @@
 // controllers/submission.controller.js
 const fs = require('fs');
 const path = require('path');
+const db = require('../db');
 
 const {
   createSubmission,
@@ -22,7 +23,7 @@ const ALLOWED_STATUS = ['en_attente', 'acceptee', 'refusee', 'en_revision'];
 const safeUnlink = (filePath) => {
   if (!filePath) return;
   const abs = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
-  fs.unlink(abs, () => {});
+  fs.unlink(abs, () => { });
 };
 
 // CREATE
@@ -340,10 +341,32 @@ const withdrawController = (req, res) => {
   });
 };
 
+// GET all submissions for an event
+const getSubmissionsForEventController = (req, res) => {
+  const { eventId } = req.params;
+
+  const sql = `
+    SELECT c.*, u.nom as auteur_principal_nom, u.prenom as auteur_principal_prenom, c.etat as statut
+    FROM communication c
+    LEFT JOIN utilisateur u ON c.auteur_id = u.id
+    WHERE c.evenement_id = ?
+    ORDER BY c.id DESC
+  `;
+
+  db.query(sql, [eventId], (err, results) => {
+    if (err) {
+      console.error('Error fetching submissions:', err);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+    res.json(results);
+  });
+};
+
 module.exports = {
   createSubmissionController,
   updateSubmissionController,
   deleteSubmissionController,
   updateStatusController,
   withdrawController,
+  getSubmissionsForEventController,
 };

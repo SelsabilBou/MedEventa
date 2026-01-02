@@ -1,7 +1,7 @@
 // controllers/survey.controller.js
 const { validationResult } = require('express-validator');
 const db = require('../db');
-const { createSurvey, submitResponse ,getSurveyResults } = require('../models/survey.model');
+const { createSurvey, submitResponse, getSurveyResults } = require('../models/survey.model');
 
 const checkEventOrganizer = (eventId, userId, callback) => {
   const sql = `

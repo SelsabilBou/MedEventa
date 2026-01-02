@@ -19,16 +19,16 @@ function StepFour({ formData, updateFormData }) {
           <option value="" disabled>
             Select your role
           </option>
-          <option value="administrateur">
-            Administrator (Event organizer)
+          <option value="ORGANISATEUR">
+            Organizer (Event organizer)
           </option>
-          <option value="communicant">Presenter (Author)</option>
-          <option value="comite-scientifique">
+          <option value="COMMUNICANT">Presenter (Author)</option>
+          <option value="MEMBRE_COMITE">
             Scientific committee member
           </option>
-          <option value="participant">Participant</option>
-          <option value="invite-conferencier">Invited speaker</option>
-          <option value="animateur-workshop">Workshop facilitator</option>
+          <option value="PARTICIPANT">Participant</option>
+          <option value="INVITE">Invited speaker</option>
+          <option value="RESP_WORKSHOP">Workshop facilitator</option>
         </select>
       </div>
 

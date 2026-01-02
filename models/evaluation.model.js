@@ -286,6 +286,31 @@ const listReportsModel = ({ page, limit, eventId, search }, callback) => {
   });
 };
 
+const getAssignmentsByUser = (userId, callback) => {
+  const sql = `
+    SELECT 
+      e.id, 
+      CASE WHEN e.date_evaluation IS NOT NULL THEN 'evaluated' ELSE 'pending' END as status,
+      c.titre, 
+      c.type,
+      c.evenement_id,
+      c.auteur_id, 
+      u.nom as auteur_principal, 
+      e.created_at
+    FROM evaluation e
+    JOIN communication c ON c.id = e.communication_id
+    JOIN membre_comite mc ON mc.id = e.membre_comite_id
+    LEFT JOIN utilisateur u ON u.id = c.auteur_id
+    WHERE mc.utilisateur_id = ?
+    -- Showing all assignments, frontend filters if needed
+    ORDER BY e.created_at DESC
+  `;
+  db.query(sql, [userId], (err, rows) => {
+    if (err) return callback(err);
+    return callback(null, rows);
+  });
+};
+
 module.exports = {
   assignManual,
   getEvaluationForm,
@@ -294,4 +319,5 @@ module.exports = {
   hasReportForProposition,
   listEvaluationsModel,
   listReportsModel,
+  getAssignmentsByUser, // NEW
 };

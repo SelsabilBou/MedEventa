@@ -305,17 +305,49 @@ const unregisterFromWorkshop = (workshopId, userId, callback) => {
 
 const listWorkshopRegistrations = (workshopId, callback) => {
   const sql = `
-    SELECT iw.id AS inscription_id, iw.participant_id, iw.workshop_id,
-           u.nom, u.prenom, u.email, u.role
-    FROM inscription_workshop iw
-    JOIN utilisateur u ON u.id = iw.participant_id
-    WHERE iw.workshop_id = ?
-    ORDER BY iw.id DESC
+    SELECT i.*, i.id AS inscription_id, i.utilisateur_id AS participant_id, u.nom, u.prenom, u.email
+    FROM inscription_workshop i
+    JOIN utilisateur u ON u.id = i.utilisateur_id
+    WHERE i.workshop_id = ?
+    ORDER BY u.nom ASC, u.prenom ASC
   `;
   db.query(sql, [workshopId], (err, rows) => {
     if (err) return callback(err);
     return callback(null, rows);
   });
+};
+
+const updatePresence = (inscriptionId, presence, callback) => {
+  db.query(
+    'UPDATE inscription_workshop SET presence = ? WHERE id = ?',
+    [presence ? 1 : 0, inscriptionId],
+    (err, result) => {
+      if (err) return callback(err);
+      return callback(null, result.affectedRows);
+    }
+  );
+};
+
+const updateConfirmationStatus = (inscriptionId, status, callback) => {
+  db.query(
+    'UPDATE inscription_workshop SET confirmation_status = ? WHERE id = ?',
+    [status, inscriptionId],
+    (err, result) => {
+      if (err) return callback(err);
+      return callback(null, result.affectedRows);
+    }
+  );
+};
+
+const getWaitlistCount = (workshopId, callback) => {
+  db.query(
+    'SELECT COUNT(*) AS total FROM inscription_workshop_attente WHERE workshop_id = ?',
+    [workshopId],
+    (err, rows) => {
+      if (err) return callback(err);
+      return callback(null, rows[0].total || 0);
+    }
+  );
 };
 
 module.exports = {
@@ -324,4 +356,7 @@ module.exports = {
   listWorkshopRegistrations,
   getWorkshopCapacity,
   countRegistrations,
+  updatePresence,
+  updateConfirmationStatus,
+  getWaitlistCount,
 };

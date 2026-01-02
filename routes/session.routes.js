@@ -4,9 +4,9 @@ const router = express.Router();
 
 const { verifyToken } = require('../middlewares/auth.middlewares');
 const { requirePermission } = require('../middlewares/permissions');
-const { createSessionValidation , updateSessionValidation,} = require('../validators/session.validators');
-const { createSessionController, assignCommunicationController ,getProgramController,
-  getDetailedProgramController,updateSessionController,} = require('../controllers/session.controller');
+const { createSessionValidation, updateSessionValidation, } = require('../validators/session.validators');
+const { createSessionController, assignCommunicationController, getProgramController,
+  getDetailedProgramController, updateSessionController, } = require('../controllers/session.controller');
 
 // Phase 1 : création de session scientifique
 // POST /events/:eventId/sessions/create
@@ -36,6 +36,16 @@ router.put(
   verifyToken,
   requirePermission('manage_program'),
   updateSessionValidation,
+  updateSessionValidation,
   updateSessionController
 );
+
+// Phase 4: My Interventions
+router.get(
+  '/my-interventions',
+  verifyToken,
+  // requirePermission('view_program'), // Optional, implies authenticated user
+  require('../controllers/session.controller').listMyInterventions
+);
+
 module.exports = router;

@@ -115,6 +115,137 @@ const getParticipants = (eventId, profil, callback) => {
     callback(null, results);
   });
 };
-module.exports = { registerInscription , getPaymentStatus,
-  updatePaymentStatus,generateBadge,
-  getBadgeByCode, getParticipants,};
+
+const getUserInscriptions = (userId, callback) => {
+  const sql = `
+    SELECT 
+      i.id,
+      i.evenement_id,
+      e.titre AS title,
+      CAST(NULL AS CHAR) AS parent,
+      e.date_debut AS date,
+      e.lieu AS place,
+      i.statut_paiement AS status,
+      i.badge,
+      i.date_inscription,
+      'Event' as type
+    FROM inscription i
+    JOIN evenement e ON i.evenement_id = e.id
+    WHERE i.participant_id = ?
+
+    UNION ALL
+
+    SELECT 
+      iw.id,
+      w.evenement_id,
+      w.titre AS title,
+      e.titre AS parent,
+      w.date AS date,
+      w.salle AS place,
+      'confirmed' AS status,
+      CAST(NULL AS CHAR) AS badge,
+      w.date AS date_inscription,
+      'Workshop' as type
+    FROM inscription_workshop iw
+    JOIN workshop w ON iw.workshop_id = w.id
+    JOIN evenement e ON w.evenement_id = e.id
+    WHERE iw.participant_id = ?
+
+    ORDER BY date DESC
+  `;
+  db.query(sql, [userId, userId], (err, results) => {
+    if (err) {
+      console.error('Erreur getUserInscriptions:', err);
+      return callback(err, null);
+    }
+    callback(null, results);
+  });
+};
+
+const getMyProgramme = (userId, callback) => {
+  // 1. Get Events
+  const sqlEvents = `
+    SELECT
+      i.evenement_id AS id,
+      e.titre AS title,
+      e.date_debut,
+      e.date_fin,
+      e.lieu AS place,
+      i.statut_paiement AS status
+    FROM inscription i
+    JOIN evenement e ON i.evenement_id = e.id
+    WHERE i.participant_id = ?
+    ORDER BY e.date_debut ASC
+  `;
+
+  // 2. Get Workshops
+  const sqlWorkshops = `
+    SELECT
+      iw.workshop_id AS id,
+      w.evenement_id,
+      w.titre AS title,
+      w.date,
+      w.responsable_id,
+      u.nom AS responsable_nom,
+      u.prenom AS responsable_prenom,
+      w.salle AS place
+    FROM inscription_workshop iw
+    JOIN workshop w ON iw.workshop_id = w.id
+    LEFT JOIN utilisateur u ON w.responsable_id = u.id
+    WHERE iw.participant_id = ?
+    ORDER BY w.date ASC
+  `;
+
+  // 3. Get Sessions (for events user is registered to)
+  const sqlSessions = `
+    SELECT
+      s.id,
+      s.evenement_id,
+      s.titre AS title,
+      s.horaire AS date,
+      s.salle AS place
+    FROM session s
+    JOIN inscription i ON s.evenement_id = i.evenement_id
+    WHERE i.participant_id = ?
+    ORDER BY s.horaire ASC
+  `;
+
+  db.query(sqlEvents, [userId], (err, events) => {
+    if (err) return callback(err);
+
+    db.query(sqlWorkshops, [userId], (errW, workshops) => {
+      if (errW) return callback(errW);
+
+      db.query(sqlSessions, [userId], (errS, sessions) => {
+        if (errS) return callback(errS);
+
+        // Merge data
+        const programme = events.map(event => {
+          const eventWorkshops = workshops.filter(w => w.evenement_id === event.id).map(w => ({
+            ...w,
+            type: 'Workshop'
+          }));
+          const eventSessions = sessions.filter(s => s.evenement_id === event.id).map(s => ({
+            ...s,
+            type: 'Session'
+          }));
+
+          return {
+            ...event,
+            type: 'Event',
+            items: [...eventSessions, ...eventWorkshops].sort((a, b) => new Date(a.date) - new Date(b.date))
+          };
+        });
+
+        callback(null, programme);
+      });
+    });
+  });
+};
+
+module.exports = {
+  registerInscription, getPaymentStatus,
+  updatePaymentStatus, generateBadge,
+  getBadgeByCode, getParticipants,
+  getUserInscriptions, getMyProgramme,
+};

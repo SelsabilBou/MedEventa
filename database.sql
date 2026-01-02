@@ -28,21 +28,15 @@ CREATE TABLE utilisateur (
     domaine_recherche VARCHAR(255),
     biographie TEXT,
     pays VARCHAR(100),
-<<<<<<< HEAD
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    reset_token_hash VARCHAR(255),
+    reset_token_expires DATETIME
 );
 
 -- ============================================
 -- TABLE EVENEMENT
 -- ============================================
-=======
-    -- champs ajoutés
-    reset_token_hash VARCHAR(255),
-    reset_token_expires DATETIME
-);
-
->>>>>>> 474392008d5cf99afa343fff9ca5be470cad575f
 CREATE TABLE evenement (
     id INT PRIMARY KEY AUTO_INCREMENT,
     titre VARCHAR(255) NOT NULL,
@@ -118,7 +112,6 @@ CREATE TABLE communication (
     id INT PRIMARY KEY AUTO_INCREMENT,
     titre VARCHAR(255) NOT NULL,
     resume TEXT,
-    -- NOT NULL ajouté
     type ENUM('orale', 'affiche', 'poster') NOT NULL,
     fichier_pdf VARCHAR(255),
     etat ENUM('en_attente', 'acceptee', 'refusee', 'en_revision') DEFAULT 'en_attente',
@@ -131,13 +124,12 @@ CREATE TABLE communication (
 );
 
 -- ============================================
--- TABLE EVALUATION (MODIFIÉE AVEC LES 3 COLONNES)
+-- TABLE EVALUATION
 -- ============================================
 CREATE TABLE evaluation (
     id INT PRIMARY KEY AUTO_INCREMENT,
     communication_id INT NOT NULL,
     membre_comite_id INT NOT NULL,
-    -- type ajusté
     note TINYINT,
     commentaire TEXT,
     decision ENUM('accepter', 'refuser', 'corriger'),
@@ -152,7 +144,7 @@ CREATE TABLE evaluation (
 );
 
 -- ============================================
--- TABLE RAPPORT_EVALUATION (NOUVELLE)
+-- TABLE RAPPORT_EVALUATION
 -- ============================================
 CREATE TABLE rapport_evaluation (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -203,15 +195,22 @@ CREATE TABLE inscription_workshop (
     id INT PRIMARY KEY AUTO_INCREMENT,
     participant_id INT NOT NULL,
     workshop_id INT NOT NULL,
-<<<<<<< HEAD
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (participant_id) REFERENCES utilisateur(id) ON DELETE CASCADE,
     FOREIGN KEY (workshop_id) REFERENCES workshop(id) ON DELETE CASCADE,
-=======
-    FOREIGN KEY (participant_id) REFERENCES utilisateur(id),
-    FOREIGN KEY (workshop_id) REFERENCES workshop(id),
-    -- contrainte ajoutée
->>>>>>> 474392008d5cf99afa343fff9ca5be470cad575f
+    UNIQUE (participant_id, workshop_id)
+);
+
+-- ============================================
+-- TABLE INSCRIPTION_WORKSHOP_ATTENTE
+-- ============================================
+CREATE TABLE inscription_workshop_attente (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    participant_id INT NOT NULL,
+    workshop_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (participant_id) REFERENCES utilisateur(id) ON DELETE CASCADE,
+    FOREIGN KEY (workshop_id) REFERENCES workshop(id) ON DELETE CASCADE,
     UNIQUE (participant_id, workshop_id)
 );
 
@@ -284,7 +283,7 @@ CREATE TABLE message_interne (
     evenement_id INT,
     contenu TEXT NOT NULL,
     date_envoi DATETIME DEFAULT CURRENT_TIMESTAMP,
-    type ENUM('notif', 'reponse', 'modif_prog'),
+    type ENUM('notif', 'reponse', 'modif_prog') NOT NULL,
     lu BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (expediteur_id) REFERENCES utilisateur(id) ON DELETE CASCADE,
@@ -396,23 +395,3 @@ CREATE INDEX idx_message_destinataire ON message_interne(destinataire_id);
 CREATE INDEX idx_notification_utilisateur ON notification(utilisateur_id);
 CREATE INDEX idx_presence_utilisateur ON presence(utilisateur_id);
 CREATE INDEX idx_presence_evenement ON presence(evenement_id);
-
-CREATE TABLE survey (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  event_id INT NOT NULL,
-  title VARCHAR(255) NOT NULL
-);
-
-CREATE TABLE survey_question (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  survey_id INT NOT NULL,
-  question_text TEXT NOT NULL
-);
-
-CREATE TABLE survey_response (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  survey_id INT NOT NULL,
-  user_id INT NOT NULL,
-  question_id INT NOT NULL,
-  answer_text TEXT NOT NULL
-);

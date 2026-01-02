@@ -1,13 +1,15 @@
-// src/components/Navbar.jsx
 import React, { useState } from "react";
 import "./Navbar.css";
 import { FaChevronDown, FaBars, FaBell } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import ActivityFeed from "./ActivityFeed";
+import axios from "axios";
 
 const Navbar = () => {
-  const rawUser = localStorage.getItem("user");
-  const user = rawUser ? JSON.parse(rawUser) : null;
+  const [user, setUser] = useState(() => {
+    const raw = localStorage.getItem("user");
+    return raw ? JSON.parse(raw) : null;
+  });
 
   const [openMenu, setOpenMenu] = useState(false);
   const [openMobile, setOpenMobile] = useState(false);
@@ -17,6 +19,32 @@ const Navbar = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Fetch fresh profile on mount
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setUser(null);
+        return;
+      }
+      try {
+        const res = await axios.get("/api/auth/me", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.data.user) {
+          const u = res.data.user;
+          // Harmonize field for display
+          u.name = `${u.prenom || ""} ${u.nom || ""}`.trim();
+          setUser(u);
+          localStorage.setItem("user", JSON.stringify(u));
+        }
+      } catch (err) {
+        console.error("Navbar profile fetch failed", err);
+      }
+    };
+    fetchProfile();
+  }, [location.pathname]); // Re-check on navigation
 
   const handleNavClick = (e, path, sectionId = null) => {
     e.preventDefault();
@@ -63,6 +91,7 @@ const Navbar = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("user");
+    localStorage.removeItem("token");
     window.location.reload();
   };
 
@@ -157,13 +186,18 @@ const Navbar = () => {
 
                 {openMenu && (
                   <div className="navbar-dropdown">
+
                     {/* Bloc réservé aux participants */}
-                    {user.role === "participant" && (
+                    {user.role?.toUpperCase() === "PARTICIPANT" && (
                       <>
+
                         <button
                           type="button"
                           className="navbar-dropdown-item"
-                          onClick={() => navigate("/participant/dashboard")}
+                          onClick={() => {
+                            navigate("/participant/dashboard");
+                            setOpenMenu(false);
+                          }}
                         >
                           Participant Dashboard
                         </button>
@@ -171,7 +205,10 @@ const Navbar = () => {
                         <button
                           type="button"
                           className="navbar-dropdown-item"
-                          onClick={() => navigate("/participant/registrations")}
+                          onClick={() => {
+                            navigate("/participant/registrations");
+                            setOpenMenu(false);
+                          }}
                         >
                           My Registrations
                         </button>
@@ -179,20 +216,133 @@ const Navbar = () => {
                         <button
                           type="button"
                           className="navbar-dropdown-item"
-                          onClick={() => navigate("/participant/certificates")}
+                          onClick={() => {
+                            navigate("/participant/certificates");
+                            setOpenMenu(false);
+                          }}
                         >
                           My Certificates
                         </button>
 
-                        {/* NEW: Activity entry */}
                         <button
                           type="button"
                           className="navbar-dropdown-item"
-                          onClick={() => setIsActivityOpen(true)}
+                          onClick={() => {
+                            setIsActivityOpen(true);
+                            setOpenMenu(false);
+                          }}
                         >
                           Activity
                         </button>
                       </>
+                    )}
+
+                    {/* Bloc réservé aux communicants (Authors) */}
+                    {(user.role?.toUpperCase() === "COMMUNICANT" || user.role?.toUpperCase() === "SUPER_ADMIN") && (
+                      <button
+                        type="button"
+                        className="navbar-dropdown-item"
+                        onClick={() => {
+                          navigate("/author/dashboard");
+                          setOpenMenu(false);
+                        }}
+                      >
+                        Author Space
+                      </button>
+                    )}
+                    {user.role?.toUpperCase() === "COMMUNICANT" && (
+                      <>
+                        <button
+                          type="button"
+                          className="navbar-dropdown-item"
+                          onClick={() => {
+                            navigate("/author/new-submission");
+                            setOpenMenu(false);
+                          }}
+                        >
+                          New Submission
+                        </button>
+                        <button
+                          type="button"
+                          className="navbar-dropdown-item"
+                          onClick={() => {
+                            navigate("/author/programme");
+                            setOpenMenu(false);
+                          }}
+                        >
+                          My Programme
+                        </button>
+                      </>
+                    )}
+
+                    {/* Bloc réservé aux organisateurs */}
+                    {(user.role?.toUpperCase() === "ORGANISATEUR" || user.role?.toUpperCase() === "SUPER_ADMIN") && (
+                      <button
+                        type="button"
+                        className="navbar-dropdown-item"
+                        onClick={() => {
+                          navigate("/admin/dashboard");
+                          setOpenMenu(false);
+                        }}
+                      >
+                        Organizer Space
+                      </button>
+                    )}
+
+                    {/* Bloc réservé au comité scientifique */}
+                    {(user.role?.toUpperCase() === "MEMBRE_COMITE" || user.role?.toUpperCase() === "SUPER_ADMIN") && (
+                      <button
+                        type="button"
+                        className="navbar-dropdown-item"
+                        onClick={() => {
+                          navigate("/committee/dashboard");
+                          setOpenMenu(false);
+                        }}
+                      >
+                        Committee Space
+                      </button>
+                    )}
+
+                    {/* Bloc réservé aux responsables de workshop */}
+                    {(user.role?.toUpperCase() === "RESP_WORKSHOP" || user.role?.toUpperCase() === "SUPER_ADMIN") && (
+                      <button
+                        type="button"
+                        className="navbar-dropdown-item"
+                        onClick={() => {
+                          navigate("/workshop-manager/dashboard");
+                          setOpenMenu(false);
+                        }}
+                      >
+                        Workshop Space
+                      </button>
+                    )}
+
+                    {/* Bloc réservé aux invités (Guest) */}
+                    {(user.role?.toUpperCase() === "INVITE" || user.role?.toUpperCase() === "SUPER_ADMIN") && (
+                      <button
+                        type="button"
+                        className="navbar-dropdown-item"
+                        onClick={() => {
+                          navigate("/guest/dashboard");
+                          setOpenMenu(false);
+                        }}
+                      >
+                        Guest Space
+                      </button>
+                    )}
+
+                    {/* Bloc réservé aux super admins */}
+                    {user.role?.toUpperCase() === "SUPER_ADMIN" && (
+                      <button
+                        type="button"
+                        className="navbar-dropdown-item"
+                        onClick={() => {
+                          navigate("/superadmin/dashboard");
+                          setOpenMenu(false);
+                        }}
+                      >
+                        Super Admin Panel
+                      </button>
                     )}
 
                     {/* Profil */}

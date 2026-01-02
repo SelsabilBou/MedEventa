@@ -1,6 +1,8 @@
 // src/components/EventsPage.jsx
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { FiCalendar, FiUsers, FiCheckCircle } from "react-icons/fi";
 import "./EventsPage.css";
 
 // Featured images
@@ -45,8 +47,8 @@ const EventsPage = ({ extraEvents = [] }) => {
     {
       id: 1,
       name: "Innovations in Digital Health",
-      startDate: "2025-03-15",
-      endDate: "2025-03-17",
+      startDate: "2026-02-15",
+      endDate: "2026-02-17",
       participants: 285,
       category: "Digital Health",
       location: "Barcelona, Spain",
@@ -56,9 +58,9 @@ const EventsPage = ({ extraEvents = [] }) => {
     },
     {
       id: 2,
-      name: "AI in Healthcare Summit 2025",
-      startDate: "2025-03-20",
-      endDate: "2025-03-22",
+      name: "AI in Healthcare Summit 2026",
+      startDate: "2026-02-20",
+      endDate: "2026-02-22",
       participants: 450,
       category: "Digital Health",
       location: "Paris, France",
@@ -69,8 +71,8 @@ const EventsPage = ({ extraEvents = [] }) => {
     {
       id: 3,
       name: "Mental Health & Wellness Summit",
-      startDate: "2025-05-08",
-      endDate: "2025-05-10",
+      startDate: "2026-03-08",
+      endDate: "2026-03-10",
       participants: 418,
       category: "Mental Health",
       location: "Lisbon, Portugal",
@@ -81,8 +83,8 @@ const EventsPage = ({ extraEvents = [] }) => {
     {
       id: 4,
       name: "Depression & Anxiety Research Forum",
-      startDate: "2025-06-03",
-      endDate: "2025-06-05",
+      startDate: "2026-03-03",
+      endDate: "2026-03-05",
       participants: 340,
       category: "Mental Health",
       location: "London, UK",
@@ -93,8 +95,8 @@ const EventsPage = ({ extraEvents = [] }) => {
     {
       id: 5,
       name: "Pediatric Oncology Conference",
-      startDate: "2025-07-15",
-      endDate: "2025-07-17",
+      startDate: "2026-04-15",
+      endDate: "2026-04-17",
       participants: 280,
       category: "Cancer Research",
       location: "Amsterdam, Netherlands",
@@ -105,8 +107,8 @@ const EventsPage = ({ extraEvents = [] }) => {
     {
       id: 6,
       name: "Pediatric Care Innovation Forum",
-      startDate: "2025-06-05",
-      endDate: "2025-06-07",
+      startDate: "2026-04-05",
+      endDate: "2026-04-07",
       participants: 356,
       category: "Pediatrics",
       location: "Madrid, Spain",
@@ -117,8 +119,8 @@ const EventsPage = ({ extraEvents = [] }) => {
     {
       id: 7,
       name: "Cardiovascular Medicine Summit",
-      startDate: "2025-06-20",
-      endDate: "2025-06-22",
+      startDate: "2026-05-20",
+      endDate: "2026-05-22",
       participants: 478,
       category: "Cardiovascular",
       location: "Vienna, Austria",
@@ -129,8 +131,8 @@ const EventsPage = ({ extraEvents = [] }) => {
     {
       id: 8,
       name: "Neuroscience Research Week",
-      startDate: "2025-07-10",
-      endDate: "2025-07-12",
+      startDate: "2026-06-10",
+      endDate: "2026-06-12",
       participants: 392,
       category: "Neuroscience",
       location: "Munich, Germany",
@@ -140,16 +142,57 @@ const EventsPage = ({ extraEvents = [] }) => {
     },
   ];
 
-  // merge static + admin events
-  const allEvents = [...staticEvents, ...extraEvents];
+  const [fetchedEvents, setFetchedEvents] = useState([]);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const response = await axios.get("/api/events");
+        const mapped = response.data.map((ev) => ({
+          id: ev._id || ev.id,
+          name: ev.titre || ev.title,
+          startDate: ev.date_debut,
+          endDate: ev.date_fin,
+          location: ev.lieu,
+          category: ev.thematique,
+          description: ev.description,
+          participants: 200, // Default participants count
+          image: null // Will be handled by placeholder logic
+        }));
+        setFetchedEvents(mapped);
+      } catch (error) {
+        console.error("Error fetching events:", error);
+      }
+    };
+    fetchEvents();
+  }, []);
+
+  const placeholders = [allEv1, allEv2, allEv3, allEv4, allEv5, allEv6, allEv7, allEv8];
+
+  // Combine passed props and fetched events
+  const combinedExtraEvents = [...extraEvents, ...fetchedEvents];
+
+  // Process to ensure they have an image
+  const processedExtraEvents = combinedExtraEvents.map((ev, index) => {
+    if (!ev.image) {
+      return {
+        ...ev,
+        image: placeholders[index % placeholders.length]
+      };
+    }
+    return ev;
+  });
+
+  // merge static + dynamic events
+  const allEvents = [...staticEvents, ...processedExtraEvents];
 
   // FEATURED section
   const featuredEvents = [
     {
       id: 1,
       name: "Innovations in Digital Health",
-      startDate: "2025-03-15",
-      endDate: "2025-03-17",
+      startDate: "2026-02-15",
+      endDate: "2026-02-17",
       color: "orange",
       featured: false,
       participants: 285,
@@ -159,8 +202,8 @@ const EventsPage = ({ extraEvents = [] }) => {
     {
       id: 2,
       name: "Cancer Research Conference",
-      startDate: "2025-04-10",
-      endDate: "2025-04-12",
+      startDate: "2026-02-25",
+      endDate: "2026-02-27",
       color: "teal",
       featured: true,
       participants: 512,
@@ -170,8 +213,8 @@ const EventsPage = ({ extraEvents = [] }) => {
     {
       id: 3,
       name: "Mental Health & Wellness Summit",
-      startDate: "2025-05-08",
-      endDate: "2025-05-10",
+      startDate: "2026-03-08",
+      endDate: "2026-03-10",
       color: "orange",
       featured: false,
       participants: 418,
@@ -181,8 +224,8 @@ const EventsPage = ({ extraEvents = [] }) => {
     {
       id: 4,
       name: "Pediatric Care Innovation Forum",
-      startDate: "2025-06-05",
-      endDate: "2025-06-07",
+      startDate: "2026-04-05",
+      endDate: "2026-04-07",
       color: "teal",
       featured: true,
       participants: 356,
@@ -192,8 +235,8 @@ const EventsPage = ({ extraEvents = [] }) => {
     {
       id: 5,
       name: "Cardiovascular Medicine Summit",
-      startDate: "2025-06-20",
-      endDate: "2025-06-22",
+      startDate: "2026-05-20",
+      endDate: "2026-05-22",
       color: "orange",
       featured: false,
       participants: 478,
@@ -203,8 +246,8 @@ const EventsPage = ({ extraEvents = [] }) => {
     {
       id: 6,
       name: "Neuroscience Research Week",
-      startDate: "2025-07-10",
-      endDate: "2025-07-12",
+      startDate: "2026-06-10",
+      endDate: "2026-06-12",
       color: "teal",
       featured: true,
       participants: 392,
@@ -214,8 +257,8 @@ const EventsPage = ({ extraEvents = [] }) => {
     {
       id: 7,
       name: "Infectious Disease Conference",
-      startDate: "2025-08-01",
-      endDate: "2025-08-03",
+      startDate: "2026-07-01",
+      endDate: "2026-07-03",
       color: "orange",
       featured: false,
       participants: 544,
@@ -224,9 +267,9 @@ const EventsPage = ({ extraEvents = [] }) => {
     },
     {
       id: 8,
-      name: "AI in Healthcare Summit 2025",
-      startDate: "2025-03-20",
-      endDate: "2025-03-22",
+      name: "AI in Healthcare Summit 2026",
+      startDate: "2026-02-20",
+      endDate: "2026-02-22",
       color: "teal",
       featured: false,
       participants: 450,
@@ -324,9 +367,8 @@ const EventsPage = ({ extraEvents = [] }) => {
                 onClick={() => openEvent(event)}
               >
                 <div
-                  className={`event-badge-tag ${
-                    event.featured ? "featured-badge" : ""
-                  }`}
+                  className={`event-badge-tag ${event.featured ? "featured-badge" : ""
+                    }`}
                 >
                   {event.badge}
                 </div>
@@ -345,11 +387,11 @@ const EventsPage = ({ extraEvents = [] }) => {
                   <h3 className="event-name">{event.name}</h3>
                   <div className="event-info">
                     <span className="event-date">
-                      <i className="fa-solid fa-calendar"></i>{" "}
+                      <FiCalendar style={{ marginRight: "0.5rem" }} />
                       {formatRange(event.startDate, event.endDate)}
                     </span>
                     <span className="event-participants">
-                      <i className="fa-solid fa-users"></i> {event.participants}
+                      <FiUsers style={{ marginRight: "0.5rem" }} /> {event.participants}
                     </span>
                   </div>
 
@@ -414,7 +456,7 @@ const EventsPage = ({ extraEvents = [] }) => {
 
                 <div className="event-grid-info">
                   <span className="event-grid-date">
-                    <i className="fa-solid fa-calendar"></i>{" "}
+                    <FiCalendar style={{ marginRight: "0.5rem" }} />
                     {formatRange(event.startDate, event.endDate)}
                   </span>
                 </div>
@@ -449,22 +491,24 @@ const EventsPage = ({ extraEvents = [] }) => {
           {processSteps.map((step, index) => (
             <div
               key={index}
-              className={`process-card ${
-                step.highlighted ? "highlighted" : ""
-              }`}
+              className={`process-card ${step.highlighted ? "highlighted" : ""
+                }`}
             >
               <div className="process-number-circle-wrapper">
                 <div className={`process-number-circle ${step.color}`}>
                   {step.icon && (
-                    <i
-                      className={`fa-solid fa-${step.icon} circle-icon`}
-                      aria-hidden="true"
+                    <div
                       style={{
                         position: "absolute",
-                        fontSize: "22px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                         color: "white",
+                        fontSize: "22px"
                       }}
-                    ></i>
+                    >
+                      <FiCheckCircle />
+                    </div>
                   )}
                   <span className="circle-number">{step.number}</span>
                 </div>

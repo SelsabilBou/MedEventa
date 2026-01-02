@@ -1,12 +1,13 @@
 // controllers/attestation.controller.js
 const path = require('path');
 const fs = require('fs');
-const PDFDocument = require('pdfkit'); // (خليه إذا تحب، بصح ما بقيناش نحتاجوه هنا)
+const PDFDocument = require('pdfkit');
 const { validationResult } = require('express-validator');
+const db = require('../db');
 
 const {
   createAttestation,
-  upsertAttestation, 
+  upsertAttestation,
   getAttestationByUser,
   listAttestationsByEvent
 } = require('../models/attestation.model');
@@ -20,6 +21,7 @@ const {
   hasAcceptedCommunication,
   isMembreComiteForEvent,
   isOrganisateurForEvent,
+  isGuestSpeakerForEvent,
   isEventFinished,
 } = require('../utils/attestationEligibility');
 
@@ -108,6 +110,14 @@ function checkEligibility(evenementId, utilisateurId, type, callback) {
     return isOrganisateurForEvent(evenementId, utilisateurId, (err, ok) => {
       if (err) return callback(err);
       if (!ok) return callback(null, { ok: false, reason: 'NOT_ORGANIZER' });
+      return callback(null, { ok: true });
+    });
+  }
+
+  if (type === 'invite') {
+    return isGuestSpeakerForEvent(evenementId, utilisateurId, (err, ok) => {
+      if (err) return callback(err);
+      if (!ok) return callback(null, { ok: false, reason: 'NOT_SPEAKER' });
       return callback(null, { ok: true });
     });
   }
@@ -225,7 +235,7 @@ function downloadMyAttestation(req, res) {
   const { evenementId, type } = req.query;
 
   // 0) type validate سريع (باش ما ندخلوش للـ DB بلا لازمة)
-  const allowed = ['participant', 'communicant', 'membre_comite', 'organisateur'];
+  const allowed = ['participant', 'communicant', 'membre_comite', 'organisateur', 'invite'];
   if (!allowed.includes(type)) {
     return res.status(400).json({ message: 'Type invalide', reason: 'TYPE_INVALIDE' });
   }
@@ -431,9 +441,114 @@ function listEventAttestations(req, res) {
 
 
 
+// GET /api/attestations/me/list
+function listMyAttestations(req, res) {
+  const utilisateurId = req.user.id;
+
+  // Custom query to join with event title
+  const sql = `
+    SELECT a.*, e.titre as event_title
+    FROM attestation a
+    JOIN evenement e ON a.evenement_id = e.id
+    WHERE a.utilisateur_id = ?
+    ORDER BY a.date_generation DESC
+  `;
+
+  db.query(sql, [utilisateurId], (err, rows) => {
+    if (err) {
+      console.error('Error listing user attestations:', err);
+      return res.status(500).json({ message: 'Erreur serveur', error: err });
+    }
+    return res.status(200).json(rows);
+  });
+}
+
+// GET /api/attestations/me/eligibility
+function listMyEligibility(req, res) {
+  const utilisateurId = req.user.id;
+
+  // This query finds events where user is eligible but no attestation exists.
+  // We check for: Participant, Communicant, Invite (Speaker), Membre Comite, Organisateur.
+  // We only include events that have 'ended' (using a simplified NOW() check, 
+  // though the generation itself will use the more robust isEventFinished logic).
+  const sql = `
+    SELECT evenement_id, event_title, type FROM (
+      -- 1. Participants
+      SELECT 
+        e.id as evenement_id, e.titre as event_title, 'participant' as type
+      FROM evenement e
+      JOIN inscription i ON i.evenement_id = e.id
+      WHERE i.participant_id = ? AND (e.date_fin IS NOT NULL AND e.date_fin <= NOW())
+      AND NOT EXISTS (SELECT 1 FROM attestation a WHERE a.evenement_id = e.id AND a.utilisateur_id = ? AND a.type = 'participant')
+
+      UNION ALL
+
+      -- 2. Communicants (Authors)
+      SELECT 
+        e.id as evenement_id, e.titre as event_title, 'communicant' as type
+      FROM evenement e
+      JOIN communication c ON c.evenement_id = e.id
+      WHERE (c.auteur_id = ?) AND c.etat = 'acceptee' AND (e.date_fin IS NOT NULL AND e.date_fin <= NOW())
+      AND NOT EXISTS (SELECT 1 FROM attestation a WHERE a.evenement_id = e.id AND a.utilisateur_id = ? AND a.type = 'communicant')
+
+      UNION ALL
+
+      -- 3. Invited Speakers (Chairs/Authors in sessions)
+      SELECT 
+        e.id as evenement_id, e.titre as event_title, 'invite' as type
+      FROM evenement e
+      JOIN session s ON s.evenement_id = e.id
+      LEFT JOIN communication c ON c.session_id = s.id
+      WHERE (s.president_id = ? OR c.auteur_id = ?) AND (e.date_fin IS NOT NULL AND e.date_fin <= NOW())
+      AND NOT EXISTS (SELECT 1 FROM attestation a WHERE a.evenement_id = e.id AND a.utilisateur_id = ? AND a.type = 'invite')
+
+      UNION ALL
+
+      -- 4. Committee Members
+      SELECT 
+        e.id as evenement_id, e.titre as event_title, 'membre_comite' as type
+      FROM evenement e
+      JOIN comite_scientifique cs ON cs.evenement_id = e.id
+      JOIN membre_comite mc ON mc.comite_id = cs.id
+      WHERE mc.utilisateur_id = ? AND (e.date_fin IS NOT NULL AND e.date_fin <= NOW())
+      AND NOT EXISTS (SELECT 1 FROM attestation a WHERE a.evenement_id = e.id AND a.utilisateur_id = ? AND a.type = 'membre_comite')
+
+      UNION ALL
+
+      -- 5. Organizers
+      SELECT 
+        e.id as evenement_id, e.titre as event_title, 'organisateur' as type
+      FROM evenement e
+      WHERE e.id_organisateur = ? AND (e.date_fin IS NOT NULL AND e.date_fin <= NOW())
+      AND NOT EXISTS (SELECT 1 FROM attestation a WHERE a.evenement_id = e.id AND a.utilisateur_id = ? AND a.type = 'organisateur')
+    ) as eligibility
+    ORDER BY evenement_id DESC
+  `;
+
+  // Note: For now, I'm excluding presentateur_id check in SQL to avoid potential column errors 
+  // if not yet migrated, sticking to auteur_id which is guaranteed.
+  const params = [
+    utilisateurId, utilisateurId, // participant
+    utilisateurId, utilisateurId, // communicant
+    utilisateurId, utilisateurId, utilisateurId, // invite
+    utilisateurId, utilisateurId, // membre_comite
+    utilisateurId, utilisateurId  // organisateur
+  ];
+
+  db.query(sql, params, (err, rows) => {
+    if (err) {
+      console.error('Error listing user eligibility:', err);
+      return res.status(500).json({ message: 'Erreur serveur', error: err });
+    }
+    return res.status(200).json(rows);
+  });
+}
+
 module.exports = {
   generateMyAttestation,
   downloadMyAttestation,
   generateAttestationForUser,
-  listEventAttestations
+  listEventAttestations,
+  listMyAttestations,
+  listMyEligibility
 };
