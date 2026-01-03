@@ -80,6 +80,21 @@ const getWorkshopsByResponsible = (responsibleId, callback) => {
   });
 };
 
+const getAllWorkshopsWithStats = (callback) => {
+  const sql = `
+    SELECT w.*, e.titre AS event_titre,
+           (SELECT COUNT(*) FROM inscription_workshop WHERE workshop_id = w.id) AS registered_count,
+           (SELECT COUNT(*) FROM inscription_workshop_attente WHERE workshop_id = w.id) AS waitlist_count
+    FROM workshop w
+    JOIN evenement e ON e.id = w.evenement_id
+    ORDER BY w.date ASC
+  `;
+  db.query(sql, [], (err, rows) => {
+    if (err) return callback(err);
+    return callback(null, rows);
+  });
+};
+
 const getWorkshopById = (workshopId, callback) => {
   const sql = `
     SELECT w.*, u.nom AS responsable_nom, u.prenom AS responsable_prenom
@@ -131,7 +146,8 @@ module.exports = {
   userExists,
   createWorkshop,
   getWorkshopsByEvent,
-  getWorkshopsByResponsible, // NEW
+  getWorkshopsByResponsible,
+  getAllWorkshopsWithStats, // NEW
   getWorkshopById,
   updateWorkshop,
   deleteWorkshop,

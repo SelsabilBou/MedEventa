@@ -5,7 +5,10 @@ const {
   createWorkshop,
   getWorkshopsByEvent,
   getWorkshopById,
+  getWorkshopsByEvent,
+  getWorkshopById,
   getWorkshopsByResponsible, // NEW
+  getAllWorkshopsWithStats, // NEW
   updateWorkshop,
   deleteWorkshop,
   eventExists,
@@ -45,13 +48,25 @@ const listWorkshops = (req, res) => {
   });
 };
 
-// Phase 4: get workshops where user is responsible
+// Phase 4: get workshops where user is responsible (or ALL if Admin/Organizer)
 const listMyWorkshops = (req, res) => {
   if (!req.user || !req.user.id) {
     return res.status(401).json({ message: 'Non authentifié' });
   }
-  const responsibleId = req.user.id;
 
+  // If Admin or Organizer, fetch ALL workshops with stats
+  if (req.user.role === 'SUPER_ADMIN' || req.user.role === 'ORGANISATEUR') {
+    getAllWorkshopsWithStats((err, rows) => {
+      if (err) {
+        return res.status(500).json({ message: 'Erreur serveur', error: err.message });
+      }
+      return res.status(200).json(rows);
+    });
+    return;
+  }
+
+  // Otherwise (RESP_WORKSHOP), fetch only assigned ones
+  const responsibleId = req.user.id;
   getWorkshopsByResponsible(responsibleId, (err, rows) => {
     if (err) {
       return res.status(500).json({ message: 'Erreur serveur', error: err.message });

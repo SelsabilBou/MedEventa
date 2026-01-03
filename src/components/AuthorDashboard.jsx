@@ -73,7 +73,7 @@ const AuthorDashboard = () => {
             <div className="ad-inner">
                 <header className="ad-header">
                     <div>
-                        <h1>Welcome back{user?.name ? `, ${user.name.split(" ")[0]}` : ""}</h1>
+                        <h1>Welcome back{user?.prenom ? `, ${user.prenom}` : ""}</h1>
                         <p>Manage your scientific communications and event participation.</p>
                     </div>
                     <button className="pd-btn" onClick={handleNewSubmission} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>

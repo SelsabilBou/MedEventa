@@ -165,14 +165,14 @@ const Navbar = () => {
             </a>
 
             {/* Logged‑in area: user + menu + bell */}
-            {user && user.name && (
+            {user && (user.nom || user.prenom) && (
               <div className="navbar-user-area">
                 <button
                   type="button"
                   className="navbar-user"
                   onClick={() => navigate("/profile")}
                 >
-                  {user.name}
+                  {user.prenom} {user.nom}
                   {user.role && (
                     <span className="navbar-user-role">· {user.role}</span>
                   )}

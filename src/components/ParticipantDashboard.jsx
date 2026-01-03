@@ -156,10 +156,12 @@ const ParticipantDashboard = ({ registrations = [] }) => {
         <div className="pd-sidebar-header">
           <div className="pd-user-info">
             <div className="pd-user-avatar">
-              {user?.name?.charAt(0) || "U"}
+              {user?.prenom?.charAt(0) || "U"}
             </div>
             <div className="pd-user-details">
-              <span className="pd-user-name">{user?.name || "User"}</span>
+              <span className="pd-user-name">
+                {user?.prenom} {user?.nom || ""}
+              </span>
               <span className="pd-user-role">Participant</span>
             </div>
           </div>
@@ -201,7 +203,7 @@ const ParticipantDashboard = ({ registrations = [] }) => {
             <div>
               <h1>Participant Dashboard</h1>
               <p>
-                Welcome{user?.name ? `, ${user.name}` : ""}. Manage your
+                Welcome{user?.prenom ? `, ${user.prenom}` : ""}. Manage your
                 registrations, programmes, surveys and certificates from one
                 place.
               </p>

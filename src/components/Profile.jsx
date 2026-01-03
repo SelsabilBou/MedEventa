@@ -47,7 +47,13 @@ const Profile = () => {
         console.error("Failed to fetch profile", err);
         // Fallback
         const saved = localStorage.getItem("user");
-        if (saved) setUser(JSON.parse(saved));
+        if (saved) {
+          const u = JSON.parse(saved);
+          if (!u.name && (u.nom || u.prenom)) {
+            u.name = `${u.prenom || ""} ${u.nom || ""}`.trim();
+          }
+          setUser(u);
+        }
       }
     };
     fetchProfile();

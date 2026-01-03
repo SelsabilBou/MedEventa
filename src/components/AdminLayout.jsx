@@ -130,9 +130,11 @@ const AdminLayout = ({ children }) => {
       <nav className={`dashboard-sidebar ${mobileMenuOpen ? "mobile-open" : ""}`}>
         <div className="dashboard-sidebar-header">
           <div className="dashboard-user-info">
-            <div className="dashboard-user-avatar">{user?.name?.charAt(0) || "A"}</div>
+            <div className="dashboard-user-avatar">{(user?.prenom || user?.name || "A").charAt(0)}</div>
             <div className="dashboard-user-details">
-              <span className="dashboard-user-name">{user?.name || (user?.nom ? `${user.prenom} ${user.nom}` : "User")}</span>
+              <span className="dashboard-user-name">
+                {user?.prenom ? `${user.prenom} ${user.nom || ""}` : (user?.name || "User")}
+              </span>
               <span className="dashboard-user-role">{user?.role?.toLowerCase().replace('_', ' ')}</span>
             </div>
           </div>
