@@ -1,5 +1,5 @@
 // controllers/attestation.batch.controller.js
-const { validationResult } = require('express-validator');
+const { validationResult } = require('express-validator');//require
 
 const {
   getAttestationByUser,
