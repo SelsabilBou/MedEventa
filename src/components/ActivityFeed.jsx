@@ -6,6 +6,7 @@ import {
   FaTimes,
   FaSpinner,
 } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./ActivityFeed.css";
 
@@ -15,7 +16,7 @@ const ActivityFeed = ({ isOpen: externalIsOpen, onClose }) => {
 
   // Only open if explicitly controlled via props (from NotificationBell)
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : false;
-  const handleClose = onClose || (() => {});
+  const handleClose = onClose || (() => { });
 
   const currentUser = React.useMemo(() => {
     try {
@@ -171,6 +172,9 @@ const ActivityFeed = ({ isOpen: externalIsOpen, onClose }) => {
     });
   };
 
+  // NEW: Navigation hook
+  const navigate = useNavigate();
+
   if (!isOpen) return null;
 
   return (
@@ -207,6 +211,10 @@ const ActivityFeed = ({ isOpen: externalIsOpen, onClose }) => {
               onClick={() => {
                 if (!notification.lu) {
                   handleMarkAsRead(notification.id);
+                }
+                if (notification.type === 'new_message' || notification.type === 'broadcast_message' || (notification.message && notification.message.toLowerCase().includes('message'))) {
+                  onClose();
+                  navigate('/messages');
                 }
               }}
             >

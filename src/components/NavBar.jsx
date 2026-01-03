@@ -16,35 +16,48 @@ const Navbar = () => {
 
   // NEW: controls ActivityFeed panel
   const [isActivityOpen, setIsActivityOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Fetch fresh profile on mount
+  const fetchUnreadCount = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !user) return;
+    try {
+      // Assuming GET /api/notifications calls getUnreadCountForUser internally or we can filter
+      // Actually simpler: let's just fetch notifications limit=1 to trigger backend check or add a specific endpoint
+      // Better: we added getUnreadCountForUser in model, let's use the dashboard activity endpoint or add a specific one.
+      // reusing /api/dashboard/activity is safest or just client side filter of /api/notifications?
+      // Let's use /api/notifications?limit=20 and count, although not perfect for total count.
+      // Correct approach: Use the /api/dashboard/activity endpoint which returns unreadCount directly
+
+      const res = await axios.get("/api/dashboard/activity", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data && typeof res.data.unreadCount === 'number') {
+        setUnreadCount(res.data.unreadCount);
+      }
+    } catch (err) {
+      console.error("Failed to fetch unread count", err);
+    }
+  };
+
+  // Poll for unread count
   React.useEffect(() => {
-    const fetchProfile = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setUser(null);
-        return;
-      }
-      try {
-        const res = await axios.get("/api/auth/me", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.data.user) {
-          const u = res.data.user;
-          // Harmonize field for display
-          u.name = `${u.prenom || ""} ${u.nom || ""}`.trim();
-          setUser(u);
-          localStorage.setItem("user", JSON.stringify(u));
-        }
-      } catch (err) {
-        console.error("Navbar profile fetch failed", err);
-      }
-    };
-    fetchProfile();
-  }, [location.pathname]); // Re-check on navigation
+    if (user) {
+      fetchUnreadCount();
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  // Update count when activity feed closes (assuming user read them)
+  React.useEffect(() => {
+    if (!isActivityOpen && user) {
+      fetchUnreadCount();
+    }
+  }, [isActivityOpen, user]);
 
   const handleNavClick = (e, path, sectionId = null) => {
     e.preventDefault();
@@ -172,7 +185,7 @@ const Navbar = () => {
                   onClick={handleToggleMenu}
                 >
                   <FaBars className="navbar-burger-icon" />
-                  <span className="navbar-messages-badge">3</span>
+                  {/* Remove existing static badge or use for something else? User probably confused this with messages. Let's keep it for menu.*/}
                 </button>
 
                 {/* NEW: bell opens ActivityFeed */}
@@ -180,8 +193,14 @@ const Navbar = () => {
                   type="button"
                   className="navbar-messages-pill"
                   onClick={() => setIsActivityOpen(true)}
+                  style={{ position: 'relative' }}
                 >
                   <FaBell className="navbar-burger-icon" />
+                  {unreadCount > 0 && (
+                    <span className="navbar-messages-badge" style={{ backgroundColor: 'red', right: '-5px', top: '-5px' }}>
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </button>
 
                 {openMenu && (

@@ -27,7 +27,20 @@ const getUsersByRole = (role, callback) => {
   });
 };
 
+const getAllUsers = (callback) => {
+  const sql = `
+    SELECT id, nom, prenom, email, role, institution
+    FROM utilisateur
+    ORDER BY nom ASC, prenom ASC
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) return callback(err);
+    callback(null, rows);
+  });
+};
+
 module.exports = {
   getUserById,
-  getUsersByRole
+  getUsersByRole,
+  getAllUsers
 };

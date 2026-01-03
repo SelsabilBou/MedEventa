@@ -333,6 +333,13 @@ const EventDetailsPage = () => {
   useEffect(() => {
     if (activeSection === "qa" && id) {
       fetchQuestions();
+
+      // Poll every 10 seconds for real-time updates for all users
+      const intervalId = setInterval(() => {
+        fetchQuestions();
+      }, 10000);
+
+      return () => clearInterval(intervalId);
     }
   }, [activeSection, id, fetchQuestions]);
 
@@ -377,7 +384,26 @@ const EventDetailsPage = () => {
         setQuestionText("");
         setQuestionSuccess(true);
         setTimeout(() => setQuestionSuccess(false), 3000);
-        await fetchQuestions(); // Refresh questions
+
+        // Optimistically add the new question to the list to ensure it appears immediately
+        const newQuestion = {
+          id: response.data.questionId || Date.now(), // Use ID from response or temporary ID
+          content: questionText.trim(),
+          contenu: questionText.trim(),
+          date_creation: new Date().toISOString(),
+          likes: 0,
+          userId: currentUser.id,
+          user: {
+            id: currentUser.id,
+            name: currentUser.name || "Anonymous"
+          },
+          userName: currentUser.name || "Anonymous"
+        };
+
+        setQuestions(prev => [newQuestion, ...prev]);
+
+        // Also fetch to ensure sync
+        await fetchQuestions();
       }
     } catch (error) {
       console.error("Error submitting question:", error);

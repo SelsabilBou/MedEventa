@@ -45,6 +45,7 @@ app.use("/api", questionRoutes);
 app.use("/api", surveyRoutes);
 app.use("/api", messageRoutes);
 app.use("/api", notificationRoutes);
+app.use("/api", require("./routes/feedback.routes"));
 app.use("/api/attestations", attestationRoutes);
 app.use("/api/author", authorRoutes);
 app.use("/api/users", userRoutes);

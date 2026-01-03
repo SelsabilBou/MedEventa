@@ -255,42 +255,78 @@ const AdminProgramme = () => {
                 </div>
 
                 <div className="sessions-timeline">
-                    {activeDay === 1 && sessions.map(session => (
-                        <div key={session.id} className="timeline-session-card">
-                            <div className="session-time">
-                                <FiClock /> {session.heure_debut} - {session.heure_fin}
-                            </div>
-                            <div className="session-content">
-                                <div className="session-header">
-                                    <h3>{session.titre}</h3>
-                                    <button className="btn-more"><FiMoreVertical /></button>
-                                </div>
-                                <div className="session-details">
-                                    <span><FiMapPin /> {session.salle}</span>
-                                    <span><FiUser /> Chair: {session.president}</span>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                    {activeDay === 1 && sessions.map(session => {
+                        // Format the horaire datetime for display
+                        const formatTime = (dateStr) => {
+                            if (!dateStr) return '-';
+                            try {
+                                const date = new Date(dateStr);
+                                return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                            } catch (e) {
+                                return '-';
+                            }
+                        };
 
-                    {activeDay === 2 && workshops.map(workshop => (
-                        <div key={workshop.id} className="timeline-session-card">
-                            <div className="session-time">
-                                <FiClock /> {new Date(workshop.date).toLocaleTimeString()}
-                            </div>
-                            <div className="session-content">
-                                <div className="session-header">
-                                    <h3>{workshop.titre}</h3>
-                                    <button className="btn-more"><FiMoreVertical /></button>
+                        const sessionTime = formatTime(session.horaire);
+                        const chairName = session.president_prenom && session.president_nom
+                            ? `${session.president_prenom} ${session.president_nom}`
+                            : '-';
+
+                        return (
+                            <div key={session.id} className="timeline-session-card">
+                                <div className="session-time">
+                                    <FiClock /> {sessionTime}
                                 </div>
-                                <div className="session-details">
-                                    <span><FiMapPin /> {workshop.salle}</span>
-                                    <span><FiUser /> {workshop.responsable_prenom} {workshop.responsable_nom}</span>
-                                    <span>Capacity: {workshop.nb_places}</span>
+                                <div className="session-content">
+                                    <div className="session-header">
+                                        <h3>{session.titre}</h3>
+                                        <button className="btn-more"><FiMoreVertical /></button>
+                                    </div>
+                                    <div className="session-details">
+                                        <span><FiMapPin /> {session.salle}</span>
+                                        <span><FiUser /> Chair: {chairName}</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
+
+                    {activeDay === 2 && workshops.map(workshop => {
+                        // Format the workshop datetime for display
+                        const formatWorkshopTime = (dateStr) => {
+                            if (!dateStr) return '-';
+                            try {
+                                const date = new Date(dateStr);
+                                return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                            } catch (e) {
+                                return '-';
+                            }
+                        };
+
+                        const workshopTime = formatWorkshopTime(workshop.date);
+                        const trainerName = workshop.responsable_prenom && workshop.responsable_nom
+                            ? `${workshop.responsable_prenom} ${workshop.responsable_nom}`
+                            : '-';
+
+                        return (
+                            <div key={workshop.id} className="timeline-session-card">
+                                <div className="session-time">
+                                    <FiClock /> {workshopTime}
+                                </div>
+                                <div className="session-content">
+                                    <div className="session-header">
+                                        <h3>{workshop.titre}</h3>
+                                        <button className="btn-more"><FiMoreVertical /></button>
+                                    </div>
+                                    <div className="session-details">
+                                        <span><FiMapPin /> {workshop.salle || '-'}</span>
+                                        <span><FiUser /> {trainerName}</span>
+                                        <span>Capacity: {workshop.nb_places || '-'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
 
                     {((activeDay === 1 && sessions.length === 0) || (activeDay === 2 && workshops.length === 0)) && (
                         <div className="empty-programme-state">No items scheduled yet.</div>

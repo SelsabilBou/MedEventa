@@ -16,4 +16,8 @@ router.get('/dashboard/activity', verifyToken, getDashboardActivity);
 // Diffusion à tout un workshop
 router.post('/messages/broadcast/workshop/:workshopId', verifyToken, sendWorkshopBroadcast);
 
+// Marquer un message comme lu
+const { markAsReadController } = require('../controllers/message.controller');
+router.put('/messages/:id/read', verifyToken, markAsReadController);
+
 module.exports = router;

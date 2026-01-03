@@ -11,6 +11,9 @@ const {
   listReportsModel,
 } = require('../models/evaluation.model');
 
+const { setSubmissionStatus } = require('../models/submission.model');
+const { createNotification } = require('../models/notification.model');
+
 // POST /api/evaluations/event/:eventId/assign-manual
 // Body: { "propositionId": 3, "evaluateurIds": [1, 2, 5] }
 const assignManually = (req, res) => {
@@ -202,6 +205,47 @@ const submitEvaluationController = async (req, res) => {
           .status(500)
           .json({ message: 'Erreur lors de la soumission' });
       }
+
+      // === NEW: Auto-update status and notify author ===
+      let newStatus = null;
+      let notifType = null;
+      let notifMessage = null;
+
+      if (decision === 'accepter') {
+        newStatus = 'acceptee';
+        notifType = 'submission_accepted';
+        notifMessage = 'Félicitations ! Votre soumission a été acceptée par le comité scientifique.';
+      } else if (decision === 'refuser') {
+        newStatus = 'refusee';
+        notifType = 'submission_refused';
+        notifMessage = 'Votre soumission a été refusée par le comité scientifique.';
+      } else if (decision === 'corriger') {
+        newStatus = 'en_revision';
+        notifType = 'submission_revision';
+        notifMessage = 'Votre soumission nécessite des corrections. Veuillez consulter les recommandations du comité.';
+      }
+
+      if (newStatus) {
+        // Get the author ID via communicationId which we have in rows[0].communication_id
+        // But we need the author_id of the submission. We can query it or assume it's fetched.
+        // Let's fetch the submission details to get author_id
+        const sqlSub = 'SELECT auteur_id FROM communication WHERE id = ?';
+        db.query(sqlSub, [communicationId], (errSub, subRows) => {
+          if (!errSub && subRows.length > 0) {
+            const auteurId = subRows[0].auteur_id;
+
+            // Update status
+            setSubmissionStatus(communicationId, newStatus, userId, (errStatus) => {
+              if (errStatus) console.error('Failed to auto-update status:', errStatus);
+            });
+
+            // Send notification
+            createNotification(auteurId, null, notifType, notifMessage)
+              .catch(errNotif => console.error('Failed to send notification:', errNotif));
+          }
+        });
+      }
+      // ============================================
 
       res.status(200).json({
         message: 'Évaluation soumise avec succès',

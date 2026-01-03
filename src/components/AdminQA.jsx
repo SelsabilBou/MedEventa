@@ -17,6 +17,66 @@ const AdminQA = () => {
         questions: [{ question: "", type: "text" }]
     });
 
+    // Results Modal State
+    const [resultsModal, setResultsModal] = useState({
+        show: false,
+        loading: false,
+        data: null,
+        surveyTitle: ""
+    });
+
+    // Reply Modal State
+    const [replyModal, setReplyModal] = useState({
+        show: false,
+        question: null,
+        content: ""
+    });
+
+    const handleReplyClick = (question) => {
+        setReplyModal({
+            show: true,
+            question: question,
+            content: `Replying to your question: "${question.contenu}"\n\n`
+        });
+    };
+
+    const handleSendReply = async () => {
+        if (!replyModal.content.trim()) return;
+
+        if (!replyModal.question?.user?.id) {
+            alert("Error: Cannot reply to this user (User not found).");
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch("/api/messages/send", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    destinataire_id: replyModal.question.user.id,
+                    evenement_id: selectedEventId,
+                    contenu: replyModal.content,
+                    type: "reponse"
+                })
+            });
+
+            if (response.ok) {
+                alert("Reply sent successfully!");
+                setReplyModal({ show: false, question: null, content: "" });
+            } else {
+                const errData = await response.json();
+                alert(`Failed to send reply: ${errData.message || "Unknown error"}`);
+            }
+        } catch (error) {
+            console.error("Error sending reply:", error);
+            alert("Error sending reply.");
+        }
+    };
+
     useEffect(() => {
         fetchEvents();
     }, []);
@@ -25,6 +85,16 @@ const AdminQA = () => {
         if (selectedEventId) {
             fetchQuestions();
             fetchSurveys();
+            fetchFeedback();
+
+            // Poll every 10 seconds for real-time updates
+            const intervalId = setInterval(() => {
+                fetchQuestions();
+                fetchSurveys();
+                fetchFeedback();
+            }, 10000);
+
+            return () => clearInterval(intervalId);
         }
     }, [selectedEventId]);
 
@@ -70,6 +140,23 @@ const AdminQA = () => {
             }
         } catch (error) {
             console.error("Error fetching surveys:", error);
+        }
+    };
+
+    const [feedbackList, setFeedbackList] = useState([]);
+
+    const fetchFeedback = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`/api/events/${selectedEventId}/feedback`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setFeedbackList(data || []);
+            }
+        } catch (error) {
+            console.error("Error fetching feedback:", error);
         }
     };
 
@@ -123,6 +210,26 @@ const AdminQA = () => {
         setSurveyForm({ ...surveyForm, questions: newQuestions });
     };
 
+    const handleViewResults = async (survey) => {
+        setResultsModal({ show: true, loading: true, data: null, surveyTitle: survey.titre });
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`/api/surveys/${survey.id}/results`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setResultsModal({ show: true, loading: false, data: data, surveyTitle: survey.titre });
+            } else {
+                alert("Failed to fetch results");
+                setResultsModal({ ...resultsModal, show: false });
+            }
+        } catch (error) {
+            console.error("Error fetching results:", error);
+            setResultsModal({ ...resultsModal, show: false });
+        }
+    };
+
     return (
         <AdminLayout>
             <div className="admin-qa-container">
@@ -164,7 +271,35 @@ const AdminQA = () => {
                     >
                         <FiBarChart2 /> Surveys & Polls
                     </button>
+                    <button
+                        className={`qa-tab ${activeTab === "feedback" ? "active" : ""}`}
+                        onClick={() => setActiveTab("feedback")}
+                    >
+                        <FiMessageSquare /> Feedback
+                    </button>
                 </div>
+
+                {activeTab === "feedback" && (
+                    <div className="feedback-list">
+                        <h3>Event Feedback</h3>
+                        {feedbackList.length === 0 ? (
+                            <p>No feedback received yet.</p>
+                        ) : (
+                            feedbackList.map(f => (
+                                <div key={f.id} className="question-card">
+                                    <div className="question-header">
+                                        <strong>{f.user_name || "Anonymous"} {f.user_firstname}</strong>
+                                        <span className="question-time">{new Date(f.created_at).toLocaleString()}</span>
+                                    </div>
+                                    <div style={{ color: "#f59e0b", marginBottom: "0.5rem" }}>
+                                        {"★".repeat(f.rating)}{"☆".repeat(5 - f.rating)}
+                                    </div>
+                                    <p>{f.comment}</p>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
 
                 {activeTab === "questions" && (
                     <div className="questions-list">
@@ -182,7 +317,12 @@ const AdminQA = () => {
                                     </div>
                                     <p className="question-content">{q.contenu}</p>
                                     <div className="question-actions">
-                                        <button className="btn-reply">Reply</button>
+                                        <button
+                                            className="btn-reply"
+                                            onClick={() => handleReplyClick(q)}
+                                        >
+                                            Reply
+                                        </button>
                                         <button className="btn-dismiss">Dismiss</button>
                                     </div>
                                 </div>
@@ -208,7 +348,12 @@ const AdminQA = () => {
                                         <span className="response-count">{survey.response_count || 0} responses</span>
                                     </div>
                                     <div className="survey-actions">
-                                        <button className="btn-view-results">View Results</button>
+                                        <button
+                                            className="btn-view-results"
+                                            onClick={() => handleViewResults(survey)}
+                                        >
+                                            View Results
+                                        </button>
                                         <button className="btn-more">More Options</button>
                                     </div>
                                 </div>
@@ -221,6 +366,48 @@ const AdminQA = () => {
                     </div>
                 )}
             </div>
+
+            {/* Survey Results Modal */}
+            {resultsModal.show && (
+                <div className="modal-overlay" onClick={() => setResultsModal({ ...resultsModal, show: false })}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <div>
+                                <h2>Survey Results</h2>
+                                <p className="modal-subtitle">{resultsModal.surveyTitle}</p>
+                            </div>
+                            <button className="modal-close-btn" onClick={() => setResultsModal({ ...resultsModal, show: false })}>
+                                <FiX />
+                            </button>
+                        </div>
+                        <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                            {resultsModal.loading ? (
+                                <p style={{ textAlign: "center", padding: "2rem" }}>Loading results...</p>
+                            ) : resultsModal.data && resultsModal.data.questions ? (
+                                resultsModal.data.questions.map((q, index) => (
+                                    <div key={index} className="results-question">
+                                        <h4>{q.questionText}</h4>
+                                        {q.responses && q.responses.length > 0 ? (
+                                            <div className="responses-list">
+                                                {q.responses.map((resp, i) => (
+                                                    <div key={i} className="response-item">
+                                                        <div className="response-user">{resp.userName || "Anonymous"}</div>
+                                                        <div className="response-text">{resp.answer}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="no-responses">No responses yet.</div>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <p>No results available.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Survey Creation Modal */}
             {showSurveyModal && (
@@ -316,6 +503,30 @@ const AdminQA = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* Reply Modal */}
+            {replyModal.show && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <div className="modal-header">
+                            <h3>Reply to {replyModal.question?.user_name || "User"}</h3>
+                            <button className="close-btn" onClick={() => setReplyModal({ ...replyModal, show: false })}><FiX /></button>
+                        </div>
+                        <div className="modal-body">
+                            <textarea
+                                value={replyModal.content}
+                                onChange={(e) => setReplyModal({ ...replyModal, content: e.target.value })}
+                                placeholder="Type your reply here..."
+                                rows="6"
+                                style={{ width: "100%", padding: "1rem", borderRadius: "8px", border: "1px solid #e2e8f0" }}
+                            />
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn-secondary" onClick={() => setReplyModal({ ...replyModal, show: false })}>Cancel</button>
+                            <button className="btn-primary" onClick={handleSendReply}>Send Reply</button>
+                        </div>
                     </div>
                 </div>
             )}
