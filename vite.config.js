@@ -3,22 +3,20 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-<<<<<<< HEAD
+
   optimizeDeps: {
-    include: ['react/jsx-runtime', 'react/jsx-dev-runtime']
+    include: ["react/jsx-runtime", "react/jsx-dev-runtime"],
   },
+
   server: {
     port: 3001,
-    proxy: {
-      '/api': 'http://localhost:3000'
-    }
-  }
-})
-=======
-  server: {
+
+    // إذا تحتاج COOP للـ popup
     headers: {
       "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
     },
+
+    // Proxy /api -> backend على 3000
     proxy: {
       "/api": {
         target: "http://localhost:3000",
@@ -28,4 +26,3 @@ export default defineConfig({
     },
   },
 });
->>>>>>> 20af0652a2889cf611cf90939f7100f670ebea10
