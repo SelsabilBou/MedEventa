@@ -1,66 +1,69 @@
-import React, { useState, useEffect } from "react";
-import AdminLayout from "./AdminLayout";
-import { FiSearch, FiFilter, FiCheck, FiX, FiRefreshCw, FiMessageCircle } from "react-icons/fi";
-import "./AdminSubmissions.css";
+import { useLocation, useNavigate } from "react-router-dom";
+import api from "../api/axios";
 
 const AdminSubmissions = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const [events, setEvents] = useState([]);
+    const [selectedEventId, setSelectedEventId] = useState(location.state?.eventId || "");
     const [submissions, setSubmissions] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState("");
+    const [searchTerm, setSearchTerm] = useState(location.state?.search || "");
     const [statusFilter, setStatusFilter] = useState("all");
 
     useEffect(() => {
-        // Placeholder fetching logic
-        const fetchSubmissions = async () => {
-            try {
-                const token = localStorage.getItem("token");
-                // Update with actual endpoint
-                const response = await fetch("/api/submissions/all", {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    setSubmissions(data);
-                } else {
-                    // Mock data for demonstration if API fails or not yet implemented
-                    setSubmissions([
-                        { id: "1", title: "Neurological Advances in 2024", author: "Dr. Alice Smith", type: "Oral", status: "pending", date: "2024-03-15" },
-                        { id: "2", title: "Cardiovascular Risk Factors", author: "Dr. Bob Jones", type: "Poster", status: "accepted", date: "2024-03-14" },
-                        { id: "3", title: "Modern Immunotherapy", author: "Dr. Carol White", type: "Keynote", status: "revision", date: "2024-03-12" },
-                    ]);
-                }
-            } catch (error) {
-                console.error("Error fetching submissions:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchSubmissions();
+        fetchEvents();
     }, []);
 
-    const filteredSubmissions = submissions.filter(sub => {
-        const matchesSearch = sub.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            sub.author.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === "all" || sub.status === statusFilter;
+    useEffect(() => {
+        if (selectedEventId) {
+            fetchSubmissions();
+        }
+    }, [selectedEventId]);
+
+    const fetchEvents = async () => {
+        try {
+            const response = await api.get("/api/events");
+            setEvents(response.data);
+            if (!selectedEventId && response.data.length > 0) {
+                // Pick an event with a date or the first one
+                const best = response.data.find(e => e.date_debut) || response.data[0];
+                setSelectedEventId(best.id);
+            }
+        } catch (error) {
+            console.error("Error fetching events:", error);
+        }
+    };
+
+    const fetchSubmissions = async () => {
+        try {
+            setLoading(true);
+            const response = await api.get(`/api/events/${selectedEventId}/submissions`);
+            setSubmissions(response.data);
+        } catch (error) {
+            console.error("Error fetching submissions:", error);
+            // Fallback to empty if error
+            setSubmissions([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const filteredSubmissions = Array.isArray(submissions) ? submissions.filter(sub => {
+        const matchesSearch = (sub.titre || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (sub.auteur_principal_nom || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (sub.auteur_principal_prenom || "").toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === "all" || sub.statut === statusFilter;
         return matchesSearch && matchesStatus;
-    });
+    }) : [];
 
     const handleStatusChange = async (submissionId, newStatus) => {
         try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`/api/events/submissions/${submissionId}/status`, {
-                method: "PUT",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ statut: newStatus })
-            });
+            const response = await api.put(`/api/events/submissions/${submissionId}/status`, { statut: newStatus });
 
-            if (response.ok) {
+            if (response.status === 200) {
                 setSubmissions(prev => prev.map(sub =>
-                    sub.id === submissionId ? { ...sub, status: newStatus } : sub
+                    sub.id === submissionId ? { ...sub, statut: newStatus } : sub
                 ));
                 alert(`Submission status updated to ${newStatus}`);
             } else {
@@ -75,6 +78,11 @@ const AdminSubmissions = () => {
 
     const getStatusBadgeClass = (status) => {
         switch (status) {
+            case "acceptee": return "status-accepted";
+            case "refusee": return "status-rejected";
+            case "en_revision": return "status-revision";
+            case "en_attente": return "status-pending";
+            // Legacy
             case "accepted": return "status-accepted";
             case "rejected": return "status-rejected";
             case "revision": return "status-revision";
@@ -93,6 +101,14 @@ const AdminSubmissions = () => {
                 </header>
 
                 <div className="table-controls">
+                    <div className="event-selector-admin">
+                        <FiFilter className="filter-icon" />
+                        <select value={selectedEventId} onChange={(e) => setSelectedEventId(e.target.value)}>
+                            {events.map(ev => (
+                                <option key={ev.id} value={ev.id}>{ev.titre}</option>
+                            ))}
+                        </select>
+                    </div>
                     <div className="search-input-wrapper">
                         <FiSearch className="search-icon" />
                         <input
@@ -106,10 +122,10 @@ const AdminSubmissions = () => {
                         <FiFilter className="filter-icon" />
                         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                             <option value="all">All Statuses</option>
-                            <option value="pending">Pending</option>
-                            <option value="accepted">Accepted</option>
-                            <option value="rejected">Rejected</option>
-                            <option value="revision">Revision</option>
+                            <option value="en_attente">Pending</option>
+                            <option value="acceptee">Accepted</option>
+                            <option value="refusee">Rejected</option>
+                            <option value="en_revision">Revision</option>
                         </select>
                     </div>
                 </div>
@@ -129,19 +145,19 @@ const AdminSubmissions = () => {
                         <tbody>
                             {filteredSubmissions.map(sub => (
                                 <tr key={sub.id}>
-                                    <td className="col-title">{sub.title}</td>
-                                    <td>{sub.author}</td>
+                                    <td className="col-title">{sub.titre}</td>
+                                    <td>{sub.auteur_principal_prenom} {sub.auteur_principal_nom}</td>
                                     <td>{sub.type}</td>
                                     <td>
-                                        <span className={`status-badge ${getStatusBadgeClass(sub.status)}`}>
-                                            {sub.status}
+                                        <span className={`status-badge ${getStatusBadgeClass(sub.statut)}`}>
+                                            {sub.statut}
                                         </span>
                                     </td>
-                                    <td>{sub.date}</td>
+                                    <td>{new Date(sub.updated_at).toLocaleDateString()}</td>
                                     <td className="col-actions">
-                                        <button className="btn-table-action accept" title="Accept" onClick={() => handleStatusChange(sub.id, "accepted")}><FiCheck /></button>
-                                        <button className="btn-table-action reject" title="Reject" onClick={() => handleStatusChange(sub.id, "rejected")}><FiX /></button>
-                                        <button className="btn-table-action revision" title="Request Revision" onClick={() => handleStatusChange(sub.id, "revision")}><FiRefreshCw /></button>
+                                        <button className="btn-table-action accept" title="Accept" onClick={() => handleStatusChange(sub.id, "acceptee")}><FiCheck /></button>
+                                        <button className="btn-table-action reject" title="Reject" onClick={() => handleStatusChange(sub.id, "refusee")}><FiX /></button>
+                                        <button className="btn-table-action revision" title="Request Revision" onClick={() => handleStatusChange(sub.id, "en_revision")}><FiRefreshCw /></button>
                                         <button className="btn-table-action comment" title="View Comments"><FiMessageCircle /></button>
                                     </td>
                                 </tr>

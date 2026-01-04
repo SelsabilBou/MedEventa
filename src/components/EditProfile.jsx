@@ -105,7 +105,7 @@ function EditProfile() {
         domaine_recherche: form.domain,
         bio: form.bio,
         role: form.role,
-        photoUrl: form.photoUrl
+        photo: form.photoUrl // Send as photo
       };
 
       const res = await axios.patch("/api/auth/me", payload, {
@@ -113,7 +113,10 @@ function EditProfile() {
       });
 
       if (res.data.user) {
-        localStorage.setItem("user", JSON.stringify(res.data.user));
+        const u = res.data.user;
+        localStorage.setItem("user", JSON.stringify(u));
+        // Update local form state if photo changed
+        setForm(f => ({ ...f, photoUrl: u.photo || "" }));
       }
       showNotify("Profile updated successfully!", "success");
       setTimeout(goBackToProfile, 1500);

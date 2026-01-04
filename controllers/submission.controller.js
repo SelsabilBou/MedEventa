@@ -9,7 +9,7 @@ const {
   updateSubmission,
   deleteSubmission,
   setSubmissionStatus,
-
+  getAllSubmissions,
   logSubmissionHistory,
   withdrawSubmission,
 } = require("../models/submission.model");
@@ -450,6 +450,17 @@ const getSubmissionsForEventController = (req, res) => {
   });
 };
 
+// Get all submissions (Super Admin)
+const getAllSubmissionsController = (req, res) => {
+  getAllSubmissions((err, results) => {
+    if (err) {
+      console.error("Error fetching all submissions:", err);
+      return res.status(500).json({ message: "Erreur serveur" });
+    }
+    res.json(results);
+  });
+};
+
 module.exports = {
   createSubmissionController,
   updateSubmissionController,
@@ -457,4 +468,5 @@ module.exports = {
   updateStatusController,
   withdrawController,
   getSubmissionsForEventController,
+  getAllSubmissionsController,
 };

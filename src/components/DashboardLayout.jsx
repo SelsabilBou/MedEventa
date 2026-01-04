@@ -149,7 +149,13 @@ const DashboardLayout = ({ children }) => {
       <nav className={`dashboard-sidebar ${mobileMenuOpen ? "mobile-open" : ""}`}>
         <div className="dashboard-sidebar-header">
           <div className="dashboard-user-info">
-            <div className="dashboard-user-avatar">{(user?.prenom || user?.name || "U").charAt(0)}</div>
+            <div className="dashboard-user-avatar">
+              {(user?.photo || user?.photoUrl) ? (
+                <img src={user.photo || user.photoUrl} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                (user?.prenom || user?.name || "U").charAt(0)
+              )}
+            </div>
             <div className="dashboard-user-details">
               <span className="dashboard-user-name">
                 {user?.prenom ? `${user.prenom} ${user.nom || ""}` : (user?.name || "User")}

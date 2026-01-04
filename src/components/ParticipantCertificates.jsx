@@ -135,7 +135,11 @@ const ParticipantCertificates = () => {
           <div className="pc-sidebar-header">
             <div className="pc-user-info">
               <div className="pc-user-avatar">
-                {user?.name?.charAt(0) || user?.prenom?.charAt(0) || "U"}
+                {(user?.photo || user?.photoUrl) ? (
+                  <img src={user.photo || user.photoUrl} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                ) : (
+                  user?.name?.charAt(0) || user?.prenom?.charAt(0) || "U"
+                )}
               </div>
               <div className="pc-user-details">
                 <span className="pc-user-name">

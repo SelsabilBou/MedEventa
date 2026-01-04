@@ -118,9 +118,9 @@ const Profile = () => {
         {/* Avatar + name */}
         <div className="profile-header">
           <div className="avatar-wrapper">
-            {user.photoUrl ? (
+            {(user.photo || user.photoUrl) ? (
               <img
-                src={user.photoUrl}
+                src={user.photo || user.photoUrl}
                 alt={user.name}
                 className="avatar-image"
               />
@@ -161,9 +161,9 @@ const Profile = () => {
               </div>
 
               <div className="idcard-photo-frame">
-                {user.photoUrl ? (
+                {(user.photo || user.photoUrl) ? (
                   <img
-                    src={user.photoUrl}
+                    src={user.photo || user.photoUrl}
                     alt={user.name}
                     className="idcard-photo"
                   />

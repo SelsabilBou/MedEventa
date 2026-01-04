@@ -3,6 +3,8 @@ const jwt = require("jsonwebtoken"); // pour créer token JWT apres login
 const db = require("../db"); // connexion mysql
 const crypto = require("crypto"); // pour hacher les codes temporaires (reset password)
 const nodemailer = require("nodemailer"); // pour envoyer les emails
+const fs = require("fs");
+const path = require("path");
 
 // Tous les rôles possibles (doivent être les mêmes que l'ENUM dans la table utilisateur)
 const ALL_ROLES = [
@@ -262,7 +264,35 @@ const updateMe = (req, res) => {
   const allowed = ["nom", "prenom", "email", "photo", "institution", "domaine_recherche"];
   const updates = {};
   for (const k of allowed) {
-    if (req.body[k] !== undefined) updates[k] = req.body[k];
+    if (req.body[k] !== undefined) {
+      if (k === "photoUrl") updates["photo"] = req.body[k];
+      else if (k === "bio") updates["biographie"] = req.body[k];
+      else updates[k] = req.body[k];
+    }
+  }
+
+  // Handle Base64 Image
+  if (updates.photo && updates.photo.startsWith("data:image")) {
+    try {
+      const base64Data = updates.photo.split(",")[1];
+      const mimeType = updates.photo.split(";")[0].split(":")[1];
+      let extension = mimeType.split("/")[1];
+      if (extension === "jpeg") extension = "jpg";
+
+      const filename = `avatar-${userId}-${Date.now()}.${extension}`;
+      const dirPath = path.join(__dirname, "..", "uploads", "avatars");
+
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+      }
+
+      const filePath = path.join(dirPath, filename);
+      fs.writeFileSync(filePath, base64Data, "base64");
+
+      updates.photo = `/uploads/avatars/${filename}`;
+    } catch (err) {
+      console.error("Error saving avatar:", err);
+    }
   }
 
   if (Object.keys(updates).length === 0) {

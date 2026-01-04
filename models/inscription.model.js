@@ -93,7 +93,19 @@ const getParticipants = (eventId, profil, callback) => {
       u.role AS profil,
       i.statut_paiement,
       i.badge,
-      i.date_inscription
+      i.date_inscription,
+      (SELECT GROUP_CONCAT(w.titre SEPARATOR ', ') 
+       FROM inscription_workshop iw 
+       JOIN workshop w ON iw.workshop_id = w.id 
+       WHERE iw.participant_id = u.id AND w.evenement_id = i.evenement_id) as workshops,
+      (SELECT GROUP_CONCAT(DISTINCT s.titre SEPARATOR ' | ')
+       FROM session s
+       WHERE s.evenement_id = i.evenement_id 
+         AND (s.id IN (SELECT session_id FROM communication WHERE auteur_id = u.id AND etat = 'acceptee')
+              OR s.president_id = u.id)) as sessions,
+      (SELECT GROUP_CONCAT(c.titre SEPARATOR ' | ')
+       FROM communication c
+       WHERE c.auteur_id = u.id AND c.evenement_id = i.evenement_id) as communications
     FROM inscription i
     JOIN utilisateur u ON i.participant_id = u.id
     WHERE i.evenement_id = ?
