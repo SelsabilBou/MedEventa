@@ -1,8 +1,7 @@
-// controllers/attestation.controller.js
-const path = require('path');
-const fs = require('fs');
-const PDFDocument = require('pdfkit');
-const { validationResult } = require('express-validator');
+const path = require('path');// gerer les chemins des fichiers
+const fs = require('fs');// lire/ecrire des fichiers
+const PDFDocument = require('pdfkit');//generer des fichiers pdf
+const { validationResult } = require('express-validator');// verifier des validation des requetes HTTP
 const db = require('../db');
 
 const {
@@ -10,39 +9,39 @@ const {
   upsertAttestation,
   getAttestationByUser,
   listAttestationsByEvent
-} = require('../models/attestation.model');
+} = require('../models/attestation.model');// fonction du model Attestation
 
 
-const { getUserById } = require('../models/user.model');
+const { getUserById } = require('../models/user.model');// charger les infos de user et event
 const { getEventById } = require('../models/event.model');
 
-const {
+const {// verification des termination de evenement et workshop
   isEventFinished,
   isWorkshopFinished,
-  isWorkshopParticipant
+  isWorkshopParticipant// si l user a participe
 } = require('../utils/attestationEligibility');
 
-const AttestationService = require("../services/attestation.service");
+const AttestationService = require("../services/attestation.service");// service centrale qui genere le pdf et cree un code unique et organiser le stockage
 
 
-const ATTESTATIONS_DIR = path.join(__dirname, '..', 'uploads', 'attestations');
-if (!fs.existsSync(ATTESTATIONS_DIR)) {
+const ATTESTATIONS_DIR = path.join(__dirname, '..', 'uploads', 'attestations');// le chemin uploads/attestations
+if (!fs.existsSync(ATTESTATIONS_DIR)) {// crier le dossiers s'il n'existe pas
   fs.mkdirSync(ATTESTATIONS_DIR, { recursive: true });
 }
 
 
-function generateAttestationPdf({ filename, user, event, type }, callback) {
+function generateAttestationPdf({ filename, user, event, type }, callback) {// la fonction qui genere un PDF manuellement
   const filePath = path.join(ATTESTATIONS_DIR, filename);
-
+// creation du document PDF et ecriture sur disque
   const doc = new PDFDocument({ margin: 50 });
   const stream = fs.createWriteStream(filePath);
   doc.pipe(stream);
 
   const nomComplet = `${user.prenom || ''} ${user.nom || ''}`.trim();
 
-  doc.fontSize(20).text('Attestation', { align: 'center' });
+  doc.fontSize(20).text('Attestation', { align: 'center' });// titre
   doc.moveDown();
-
+  // contenu dynamique
   doc.fontSize(14).text(`Nom : ${nomComplet}`);
   doc.text(`Événement : ${event.titre || ''}`);
   doc.text(`Type : ${type}`);
@@ -131,12 +130,7 @@ function checkEligibility(evenementId, utilisateurId, type, callback, workshopId
   return callback(null, { ok: false, reason: 'TYPE_INVALIDE' });
 }
 
-/**
- * ============================
- * Phase 3: PDF unique + stockage
- * ============================
- * POST /api/attestations/me/generate
- */
+// fonction decide si un utilisateur a le droit a une attestation
 function generateMyAttestation(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {

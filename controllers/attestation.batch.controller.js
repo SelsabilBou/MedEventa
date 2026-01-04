@@ -1,29 +1,27 @@
-// controllers/attestation.batch.controller.js
-const { validationResult } = require('express-validator');//require
+const { validationResult } = require('express-validator');//recupere la fonction validationResult
 
 const {
-  getAttestationByUser,
-  upsertAttestation
+  getAttestationByUser,//verifier si l'attestation existe deja 
+  upsertAttestation // update or insert une attestation
 } = require('../models/attestation.model');
 
-const { createNotification } = require('../models/notification.model');
+const { createNotification } = require('../models/notification.model');//pour envoyer une notification a l'utilisateur quand son certificat est pret
 
 const {
-  isEventFinished,
-  isParticipantInscrit,
-  hasAcceptedCommunication,
-  isMembreComiteForEvent,
-  isOrganisateurForEvent,
-  isWorkshopParticipant,
+  isEventFinished,//evenement terminer?
+  isParticipantInscrit,//utilisateur inscrit?
+  hasAcceptedCommunication,//communication acceptee?
+  isMembreComiteForEvent,//membre de comite?
+  isOrganisateurForEvent,//organisateur?
+  isWorkshopParticipant,//participant a un workshop?
   isWorkshopFinished
 } = require('../utils/attestationEligibility');
 
-const AttestationService = require('../services/attestation.service');
+const AttestationService = require('../services/attestation.service');// service generer le PDF et ecrir un code unique 
 
-/**
- * Helpers: wrap callback-style eligibility fns into Promise
- */
-function promisifyEligibility(fn, eventId, userId) {
+//helpers => les fonction utilisent des callbacks (err, result ) 
+// helpers les transformer en promises pour utiliser async/await
+function promisifyEligibility(fn, eventId, userId) {// une fonction de verification qui retourne true ou false
   return new Promise((resolve, reject) => {
     fn(eventId, userId, (err, ok) => {
       if (err) return reject(err);
@@ -32,7 +30,7 @@ function promisifyEligibility(fn, eventId, userId) {
   });
 }
 
-function promisifyGetAttByUser(eventId, userId, type) {
+function promisifyGetAttByUser(eventId, userId, type) {//verifier si l'attestation esxiste deja
   return new Promise((resolve, reject) => {
     getAttestationByUser(eventId, userId, type, (err, row) => {
       if (err) return reject(err);
@@ -41,7 +39,7 @@ function promisifyGetAttByUser(eventId, userId, type) {
   });
 }
 
-function promisifyUpsertAttestation(attData) {
+function promisifyUpsertAttestation(attData) {//pour inset or update l'attestation dans la base de donnees
   return new Promise((resolve, reject) => {
     upsertAttestation(attData, (err, row) => {
       if (err) return reject(err);
@@ -50,22 +48,20 @@ function promisifyUpsertAttestation(attData) {
   });
 }
 
-/**
- * GET ELIGIBILITY per type
- */
+//est-ce que l'utilisateur merite ce type d'attestation
 async function isEligible(eventId, userId, type, workshopId) {
   if (type === 'participant') {
     return promisifyEligibility(isParticipantInscrit, eventId, userId);
-  }
+  }//partisipant doit etre inscrit
   if (type === 'communicant') {
     return promisifyEligibility(hasAcceptedCommunication, eventId, userId);
-  }
+  }//communicant doit etre la communication acceptee
   if (type === 'membre_comite') {
     return promisifyEligibility(isMembreComiteForEvent, eventId, userId);
-  }
+  }//verification du role
   if (type === 'organisateur') {
     return promisifyEligibility(isOrganisateurForEvent, eventId, userId);
-  }
+  }//verification du role
   if (type === 'workshop') {
     // promisifyEligibility expects (eventId, userId, cb), but isWorkshopParticipant needs (workshopId, userId, cb)
     // wrapper:
@@ -77,38 +73,28 @@ async function isEligible(eventId, userId, type, workshopId) {
     });
   }
   return false;
-}
+}// verifier si l'utilisateur a participe au workshop
 
-/**
- * POST /api/attestations/admin/batch/:eventId?force=true
- * Body:
- *  {
- *    "userIds": [1,2,3],          // required في هاد النسخة
- *    "types": ["participant"]     // optional (default: all types)
- *  }
- */
+//route POST pour generer les attestations pour plusieur utilisateurs
 async function generateBatchForEvent(req, res) {
-  const errors = validationResult(req);
+  const errors = validationResult(req);// verifier les erreur du validator 
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
-  }
+  }// si il y a un erreur donc stop
 
   const eventId = req.params.eventId;
+  const force = !!req.query.force;//regenerer meme si deja existant
 
-  // ✅ FIX: validator راه يدير toBoolean() => نخدمو مباشرة boolean
-  const force = !!req.query.force;
-
-  const { userIds, types, workshopId } = req.body;
-
-  // نخليه (حتى لو validators راهم يتحققو) باش تكون safety زيادة
-  if (!Array.isArray(userIds) || userIds.length === 0) {
+  const { userIds, types, workshopId } = req.body;// donnes envoyees dans le body
+  
+  if (!Array.isArray(userIds) || userIds.length === 0) {// securite : userId obligatoires
     return res.status(400).json({
-      message: 'userIds مطلوبين للـ batch',
+      message: 'userIds needed batch',
       reason: 'USER_IDS_REQUIRED'
     });
   }
 
-  const allowedTypes = ['participant', 'communicant', 'membre_comite', 'organisateur', 'workshop'];
+  const allowedTypes = ['participant', 'communicant', 'membre_comite', 'organisateur', 'workshop'];// type d'attestation possibles
   const targetTypes = Array.isArray(types) && types.length ? types : allowedTypes;
 
   const invalidType = targetTypes.find(t => !allowedTypes.includes(t));
@@ -116,7 +102,7 @@ async function generateBatchForEvent(req, res) {
     return res.status(400).json({ message: 'Type invalide', reason: 'TYPE_INVALIDE', invalidType });
   }
 
-  // 1) event/workshop finished?
+  // event/workshop finished?
   if (targetTypes.includes('workshop')) {
     if (!workshopId) {
       return res.status(400).json({ message: 'Workshop ID required for workshop batch' });
@@ -132,7 +118,7 @@ async function generateBatchForEvent(req, res) {
     });
 
     if (wResult.error) return res.status(500).json({ message: 'Error checking workshop', error: wResult.error });
-    if (!wResult.ok) {
+    if (!wResult.ok) {   // securite : pas d'attestation avant la fin de workshop
       return res.status(403).json({
         message: 'Attestations non disponibles avant la fin du workshop',
         reason: wResult.reason
@@ -162,7 +148,7 @@ async function generateBatchForEvent(req, res) {
     }
   }
 
-  const report = {
+  const report = {// afficher un resume final
     eventId,
     force,
     totalUsers: userIds.length,
@@ -174,22 +160,14 @@ async function generateBatchForEvent(req, res) {
     failures: []
   };
 
-  for (const userId of userIds) {
+  for (const userId of userIds) {// c'est la boucle principale 
     for (const type of targetTypes) {
       try {
-        const existing = await promisifyGetAttByUser(eventId, userId, type); // TODO: Update promisifyGetAttByUser to support workshopId if needed? 
-        // Logic: if existing, skip.
-        // We need to confirm if getAttestationByUser handles workshop_id. Yes, updated in model.
-        // But helper promisifyGetAttByUser(eventId, userId, type) calls getAttestationByUser(e, u, t, cb).
-        // It does NOT pass workshopId.
-        // I need to update promisifyGetAttByUser? 
-        // Yes, or simply call getAttestationByUser directly here inside wrapper if type is workshop?
-        // Let's rely on standard logic: if workshopId passed, use it.
-        // But `promisifyGetAttByUser` is defined above. I need to update it too. 
-        // I'll update calls here first.
+        const existing = await promisifyGetAttByUser(eventId, userId, type); 
+        
 
         let existingCheck = null;
-        if (type === 'workshop') {
+        if (type === 'workshop') {// si deja generee on skip
           existingCheck = await new Promise((resolve, reject) => {
             getAttestationByUser(eventId, userId, type, (err, row) => resolve(row), workshopId);
           });
@@ -202,20 +180,20 @@ async function generateBatchForEvent(req, res) {
           continue;
         }
 
-        const ok = await isEligible(eventId, userId, type, workshopId);
+        const ok = await isEligible(eventId, userId, type, workshopId);// pas eligible on skip
         if (!ok) {
           report.skippedNotEligible += 1;
           continue;
         }
 
-        const { pdfPath, uniqueCode } = await AttestationService.generateAttestationPdf({
+        const { pdfPath, uniqueCode } = await AttestationService.generateAttestationPdf({// generer le PDF et un code unique
           eventId,
           userId,
           type,
           workshopId
         });
 
-        await promisifyUpsertAttestation({
+        await promisifyUpsertAttestation({// sauvgarder dand data base
           evenementId: eventId,
           utilisateurId: userId,
           type,
@@ -233,7 +211,7 @@ async function generateBatchForEvent(req, res) {
           .catch(nErr => console.error("Notification certificate error:", nErr));
 
         report.createdOrUpdated += 1;
-      } catch (e) {
+      } catch (e) {// gestion des erreurs
         report.failed += 1;
         report.failures.push({
           userId,
@@ -244,7 +222,7 @@ async function generateBatchForEvent(req, res) {
     }
   }
 
-  return res.status(200).json({
+  return res.status(200).json({// reponse finale 
     message: 'Batch terminé',
     report
   });
