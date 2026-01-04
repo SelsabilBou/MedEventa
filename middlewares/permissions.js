@@ -2,7 +2,6 @@
 const permissions = {
   SUPER_ADMIN: [
     'create_event', 'delete_user', 'view_all', 'manage_evaluations',
-<<<<<<< HEAD:middlewares/permissions.js
     'decide_submission',
     'view_submissions',
     'create_workshop',
@@ -16,18 +15,10 @@ const permissions = {
     'generate_attestation',
     'view_attestations',
     'view_stats'
-=======
-    'decide_submission', 'view_submissions', 'create_workshop',
-    'edit_workshop', 'delete_workshop', 'view_workshops',
-    'manage_workshop_inscriptions', 'manage_workshop_supports',
-    'generate_attestation', 'view_attestations', 'view_stats',
-    'manage_program', 'manage_event'
->>>>>>> 20af0652a2889cf611cf90939f7100f670ebea10:MedEventa-main/middlewares/permissions.js
   ],
 
   ORGANISATEUR: [
     'create_event', 'edit_event', 'manage_inscriptions', 'manage_evaluations',
-<<<<<<< HEAD:middlewares/permissions.js
     'decide_submission',
     'view_submissions',
     'create_workshop',
@@ -39,13 +30,6 @@ const permissions = {
     'generate_attestation',
     'view_attestations',
     'view_stats'
-=======
-    'decide_submission', 'view_submissions', 'create_workshop',
-    'edit_workshop', 'delete_workshop', 'view_workshops',
-    'manage_workshop_inscriptions', 'manage_workshop_supports',
-    'generate_attestation', 'view_attestations', 'view_stats',
-    'manage_program', 'manage_event'
->>>>>>> 20af0652a2889cf611cf90939f7100f670ebea10:MedEventa-main/middlewares/permissions.js
   ],
 
   COMMUNICANT: [
