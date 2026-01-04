@@ -1,4 +1,3 @@
-// controllers/evaluation.controller.js
 const { validationResult } = require('express-validator');
 const db = require('../db');
 const {
@@ -14,8 +13,7 @@ const {
 const { setSubmissionStatus } = require('../models/submission.model');
 const { createNotification } = require('../models/notification.model');
 
-// POST /api/evaluations/event/:eventId/assign-manual
-// Body: { "propositionId": 3, "evaluateurIds": [1, 2, 5] }
+
 const assignManually = (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -25,7 +23,7 @@ const assignManually = (req, res) => {
   const { eventId } = req.params;
   const { propositionId, evaluateurIds } = req.body;
 
-  // 1) Vérifier que la communication existe et appartient bien à l'événement
+  // Vérifier que la communication existe et appartient bien à l'événement
   const sqlComm = `
     SELECT id, evenement_id
     FROM communication
@@ -46,7 +44,7 @@ const assignManually = (req, res) => {
         .json({ message: "Cette proposition n'appartient pas à cet événement" });
     }
 
-    // 2) Vérifier que chaque evaluateurId correspond bien à un membre_comite de CE même event
+    //  Vérifier que chaque evaluateurId correspond bien à un membre_comite de CE même event
     const ids = evaluateurIds.map((id) => Number(id));
     const placeholders = ids.map(() => '?').join(',');
 
@@ -73,7 +71,7 @@ const assignManually = (req, res) => {
 
       const membreComiteIds = membreRows.map((row) => row.id);
 
-      // 3) Appeler le modèle pour insérer dans evaluation
+      // Appeler le modèle pour insérer dans evaluation
       assignManual(propositionId, membreComiteIds, (err3, result) => {
         if (err3) {
           return res
@@ -92,7 +90,7 @@ const assignManually = (req, res) => {
   });
 };
 
-// GET /api/evaluations/evaluation/:evaluationId/form
+
 // Récupérer le formulaire d'évaluation (pour l'évaluateur connecté)
 const getEvaluationFormController = (req, res) => {
   const { evaluationId } = req.params;
@@ -137,7 +135,7 @@ const getEvaluationFormController = (req, res) => {
   });
 };
 
-// POST /api/evaluations/evaluation/:evaluationId/submit
+
 // Soumettre les scores et recommandation
 const submitEvaluationController = async (req, res) => {
   const errors = validationResult(req);
@@ -176,7 +174,7 @@ const submitEvaluationController = async (req, res) => {
 
     const communicationId = rows[0].communication_id;
 
-    // PHASE 5: lock simple
+    // lock pour que on peut pas modifier l'evaluation
     try {
       const locked = await hasReportForProposition(communicationId);
       if (locked) {
@@ -206,7 +204,7 @@ const submitEvaluationController = async (req, res) => {
           .json({ message: 'Erreur lors de la soumission' });
       }
 
-      // === NEW: Auto-update status and notify author ===
+      //  Auto-update status and notify author 
       let newStatus = null;
       let notifType = null;
       let notifMessage = null;
@@ -249,7 +247,7 @@ const submitEvaluationController = async (req, res) => {
           }
         });
       }
-      // ============================================
+     // succes
 
       res.status(200).json({
         message: 'Évaluation soumise avec succès',
@@ -260,12 +258,12 @@ const submitEvaluationController = async (req, res) => {
   });
 };
 
-// POST /api/evaluations/proposition/:propositionId/generate-report
+
 // Générer le rapport final d'une proposition (après toutes les évaluations)
 const generateReportController = (req, res) => {
   const { propositionId } = req.params;
 
-  // Vérifier que la proposition existe
+  // Vérifier que la communication existe
   const sqlComm = `
     SELECT id FROM communication WHERE id = ?
   `;
@@ -302,7 +300,7 @@ const generateReportController = (req, res) => {
   });
 };
 
-// PHASE 5: list evaluations with pagination
+// list evaluations with pagination
 const listEvaluations = (req, res) => {
   const { page = 1, limit = 10, eventId, search } = req.query;
 
@@ -323,7 +321,7 @@ const listEvaluations = (req, res) => {
   );
 };
 
-// PHASE 5: list reports with pagination
+// list reports with pagination
 const listReports = (req, res) => {
   const { page = 1, limit = 10, eventId, search } = req.query;
 
@@ -346,13 +344,12 @@ const listReports = (req, res) => {
 
 
 
-// PHASE 5: Get assignments for logged-in committee member
+//  Get assignments for logged-in committee member
 const getMyAssignments = (req, res) => {
   const userId = req.user.id;
 
-  // Need to import this function at the top or use require inside (but top is better)
-  // assuming I update imports in next step or use require inline if needed, but clean is better
-  // Let's use the one imported at top (I need to update top imports)
+ 
+  
 
   require('../models/evaluation.model').getAssignmentsByUser(userId, (err, rows) => {
     if (err) {
@@ -363,7 +360,7 @@ const getMyAssignments = (req, res) => {
   });
 };
 
-// NEW: Get all submissions for events where this user is a committee member
+// Get all submissions for events where this user is a committee member
 const getCommitteeSubmissions = (req, res) => {
   const userId = req.user.id;
   const userRole = req.user.role;
@@ -410,7 +407,7 @@ const getCommitteeSubmissions = (req, res) => {
   });
 };
 
-// NEW: Start/Initialize an evaluation
+// Start/Initialize an evaluation
 const startEvaluationController = (req, res) => {
   const { communicationId } = req.body;
   const userId = req.user.id;

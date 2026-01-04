@@ -172,13 +172,13 @@ const manageAnimateursController = (req, res) => {
   const { eventId } = req.params;
   const { animateurs, workshopAssignments } = req.body;
 
-  // 1. Clear and Update event-level animateurs
+  // Clear and Update event-level animateurs
   clearAnimateurs(eventId, (err) => {
     if (err) return res.status(500).json({ message: "Erreur lors de la réinitialisation des animateurs" });
 
     const proceedAddSessions = () => {
-      // 2. Clear previous assignments if any logic exists? 
-      // Actually the user wants to SYNC them.
+      //  Clear previous assignments if any logic exists? 
+      
 
       if (workshopAssignments && Array.isArray(workshopAssignments)) {
         let count = 0;

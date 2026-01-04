@@ -1,5 +1,4 @@
-// controllers/inscription.controller.js
-const { validationResult } = require('express-validator');
+const { validationResult } = require('express-validator');// gerer les inscription des participant aux evenement scientifiques
 const { inscriptionValidationByProfile } = require('../validators/inscription.validators');
 const {
   registerInscription,
@@ -31,7 +30,7 @@ const validateInscription = (req, res, next) => {
     });
 };
 
-// POST /api/inscriptions/register/:eventId
+
 // Créer une inscription pour un user connecté sur un événement donné
 const register = (req, res) => {
   const { eventId } = req.params;
@@ -60,7 +59,7 @@ const register = (req, res) => {
   });
 };
 
-// GET /api/inscriptions/:inscriptionId/payment-status
+
 // Récupérer le statut de paiement d'une inscription
 const getPaymentStatusController = (req, res) => {
   const { inscriptionId } = req.params;
@@ -81,7 +80,7 @@ const getPaymentStatusController = (req, res) => {
   });
 };
 
-// PUT /api/inscriptions/:inscriptionId/payment-status
+
 // Mettre à jour le statut de paiement (orga/admin)
 const updatePaymentStatusController = (req, res) => {
   const { inscriptionId } = req.params;
@@ -118,7 +117,7 @@ const updatePaymentStatusController = (req, res) => {
     });
   });
 };
-// POST /api/inscriptions/:inscriptionId/generate-badge
+
 // Générer (ou régénérer) un badge après paiement
 const generateBadgeController = (req, res) => {
   const { inscriptionId } = req.params;
@@ -141,7 +140,7 @@ const generateBadgeController = (req, res) => {
   });
 };
 
-// GET /api/inscriptions/badge/:code
+
 // Récupérer les infos du badge (carte d'accès)
 const getBadgeController = (req, res) => {
   const { code } = req.params;
@@ -161,7 +160,7 @@ const getBadgeController = (req, res) => {
     });
   });
 };
-// GET /api/inscriptions/event/:eventId/participants?profil=PARTICIPANT
+
 const getParticipantsController = (req, res) => {
   const { eventId } = req.params;
   const profil = req.query.profil || null; // optionnel
