@@ -3,6 +3,106 @@
     margin: 0 auto;
 }
 
+.table-controls {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    gap: 1.5rem;
+}
+
+.event-selector-admin {
+    position: relative;
+    min-width: 250px;
+}
+
+.event-selector-admin select {
+    width: 100%;
+    padding: 0.9rem 1rem 0.9rem 1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(93, 123, 138, 0.15);
+    background: white;
+    appearance: none;
+    font-size: 0.95rem;
+    color: #12324a;
+    outline: none;
+    cursor: pointer;
+}
+
+.table-controls .search-input-wrapper {
+    flex: 1;
+}
+
+.search-input-wrapper {
+    position: relative;
+}
+
+.search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c8895;
+    pointer-events: none;
+}
+
+.search-input-wrapper input {
+    width: 100%;
+    padding: 0.9rem 1rem 0.9rem 3rem;
+    border-radius: 14px;
+    border: 1px solid rgba(93, 123, 138, 0.15);
+    background: white;
+    font-size: 0.95rem;
+    color: #12324a;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.search-input-wrapper input:focus {
+    border-color: #0f9d8a;
+    box-shadow: 0 0 0 4px rgba(15, 157, 138, 0.05);
+}
+
+.submissions-table-wrapper {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    overflow-x: auto;
+    border: 1px solid rgba(93, 123, 138, 0.08);
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th {
+    background: #f8fafc;
+    padding: 1.25rem 1.5rem;
+    text-align: left;
+    font-size: 0.85rem;
+    color: #6c8895;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba(93, 123, 138, 0.08);
+}
+
+.admin-table td {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid rgba(93, 123, 138, 0.05);
+    color: #12324a;
+    font-size: 0.95rem;
+    vertical-align: middle;
+}
+
+.admin-table .col-name {
+    min-width: 200px;
+}
+
+.admin-table td:nth-child(2) {
+    /* Email column */
+    min-width: 250px;
+}
+
 .user-cell {
     display: flex;
     align-items: center;
@@ -20,6 +120,49 @@
     justify-content: center;
     font-size: 0.8rem;
     font-weight: 600;
+}
+
+.status-badge {
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    display: inline-block;
+}
+
+.status-accepted {
+    background: #e6f7f1;
+    color: #0f9d8a;
+}
+
+.status-pending {
+    background: #fff8e1;
+    color: #f39c12;
+}
+
+.col-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-table-action {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    background: #f8fafc;
+    color: #6c8895;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-table-action:hover {
+    background: #f1f5f9;
+    color: #12324a;
 }
 
 .header-actions {
@@ -45,4 +188,24 @@
     background: #f8fafc;
     border-color: #0f9d8a;
     color: #0f9d8a;
+}
+
+.admin-table td:nth-child(4) {
+    /* Involvement column */
+    max-width: 350px;
+    min-width: 150px;
+}
+
+.involvement-details strong {
+    color: #4a5568;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.role-badge {
+    background: #edf2f7;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-weight: 600;
 }

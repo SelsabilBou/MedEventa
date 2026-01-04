@@ -8,7 +8,8 @@ import {
     FiLogOut,
     FiMenu,
     FiX,
-    FiShield
+    FiShield,
+    FiFileText
 } from "react-icons/fi";
 import "./SuperAdminLayout.css";
 
@@ -72,7 +73,11 @@ const SuperAdminLayout = ({ children }) => {
                 <div className="sidebar-footer">
                     <div className="user-info">
                         <div className="user-avatar">
-                            {user?.prenom?.charAt(0) || user?.nom?.charAt(0) || "S"}
+                            {(user?.photo || user?.photoUrl) ? (
+                                <img src={user.photo || user.photoUrl} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                            ) : (
+                                user?.prenom?.charAt(0) || user?.nom?.charAt(0) || "S"
+                            )}
                         </div>
                         <div className="user-details">
                             <div className="user-name">{user?.prenom} {user?.nom}</div>

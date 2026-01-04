@@ -155,6 +155,8 @@ const generateReport = (propositionId, callback) => {
         decisions.filter((x) => x === b).length
     )[0];
 
+    const moyenneGlobale = ((moyPertinence + moyQualite + moyOriginalite) * 20) / 15;
+
     const rapport = {
       proposition_id: propositionId,
       nombre_evaluateurs: evals.length,
@@ -163,6 +165,7 @@ const generateReport = (propositionId, callback) => {
         qualite_scientifique: parseFloat(moyQualite.toFixed(2)),
         originalite: parseFloat(moyOriginalite.toFixed(2)),
       },
+      moyenne_globale: parseFloat(moyenneGlobale.toFixed(2)),
       decision_majoritaire: decisionMajoritaire,
       commentaires: evals
         .filter((e) => e.commentaire)
@@ -213,7 +216,20 @@ const listEvaluationsModel = ({ page, limit, eventId, search }, callback) => {
   }
 
   const sql = `
-    SELECT e.*, c.titre AS communication_titre, u.nom AS evaluateur_nom, u.prenom AS evaluateur_prenom
+    SELECT 
+      e.*, 
+      c.titre AS communication_titre, 
+      u.nom AS evaluateur_nom, 
+      u.prenom AS evaluateur_prenom,
+      CASE 
+        WHEN e.date_evaluation IS NOT NULL THEN 'termine' 
+        ELSE 'en_cours' 
+      END as statut,
+      CASE 
+        WHEN e.pertinence IS NOT NULL AND e.qualite_scientifique IS NOT NULL AND e.originalite IS NOT NULL
+        THEN ROUND((e.pertinence + e.qualite_scientifique + e.originalite) * 20 / 15, 1)
+        ELSE NULL
+      END as note_globale
     FROM evaluation e
     JOIN communication c ON e.communication_id = c.id
     JOIN membre_comite mc ON e.membre_comite_id = mc.id
@@ -272,6 +288,22 @@ const listReportsModel = ({ page, limit, eventId, search }, callback) => {
   db.query(sql, params, (err, rows) => {
     if (err) return callback(err);
 
+    // Map rows to parse JSON content
+    const parsedRows = rows.map(row => {
+      let content = {};
+      try {
+        content = typeof row.contenu_rapport === 'string' ? JSON.parse(row.contenu_rapport) : row.contenu_rapport;
+      } catch (e) {
+        console.error('JSON parse error in listReportsModel:', e);
+      }
+      return {
+        ...row,
+        moyenne_globale: content.moyenne_globale || 0,
+        decision_finale: content.decision_majoritaire || 'non_decide',
+        titre_comm: row.communication_titre
+      };
+    });
+
     const countSql = `
       SELECT COUNT(*) AS total
       FROM rapport_evaluation r
@@ -281,7 +313,7 @@ const listReportsModel = ({ page, limit, eventId, search }, callback) => {
     db.query(countSql, params.slice(0, params.length - 2), (err2, countRows) => {
       if (err2) return callback(err2);
       callback(null, {
-        data: rows,
+        data: parsedRows,
         pagination: { page, limit, total: countRows[0].total },
       });
     });

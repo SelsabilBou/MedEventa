@@ -35,4 +35,14 @@ function getEventStats(req, res) {
   });
 }
 
-module.exports = { getEventStats };
+function getGlobalStats(req, res) {
+  StatsModel.getGlobalOverview((err, stats) => {
+    if (err) {
+      console.error('Error fetching global stats:', err);
+      return res.status(500).json({ message: 'Erreur serveur', error: err });
+    }
+    res.json(stats);
+  });
+}
+
+module.exports = { getEventStats, getGlobalStats };

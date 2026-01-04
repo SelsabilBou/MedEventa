@@ -86,7 +86,7 @@ const AdminEvaluations = () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`/api/rapports?eventId=${selectedEventId}&search=${searchTerm}`, {
+            const response = await fetch(`/api/evaluations/rapports?eventId=${selectedEventId}&search=${searchTerm}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.ok) {
@@ -122,10 +122,27 @@ const AdminEvaluations = () => {
         }
     };
 
-    const StatusBadge = ({ status }) => {
+    const StatusBadge = ({ status, decision }) => {
+        let label = status || "Pending";
         let color = "#718096";
-        if (status === "termine") color = "#38a169";
-        if (status === "en_cours") color = "#3182ce";
+
+        if (status === "termine") {
+            color = "#38a169";
+            if (decision === "accepter") {
+                label = "Accepted";
+            } else if (decision === "refuser") {
+                label = "Refused";
+                color = "#e53e3e";
+            } else if (decision === "corriger") {
+                label = "Revision";
+                color = "#dd6b20";
+            } else {
+                label = "Finished";
+            }
+        } else if (status === "en_cours") {
+            label = "In Progress";
+            color = "#3182ce";
+        }
 
         return (
             <span style={{
@@ -134,9 +151,10 @@ const AdminEvaluations = () => {
                 fontSize: "0.85rem",
                 backgroundColor: `${color}20`,
                 color: color,
-                fontWeight: 500
+                fontWeight: 500,
+                textTransform: 'capitalize'
             }}>
-                {status || "Pending"}
+                {label}
             </span>
         );
     };
@@ -223,7 +241,7 @@ const AdminEvaluations = () => {
                                                             <strong>{ev.note_globale}/20</strong>
                                                         ) : "-"}
                                                     </td>
-                                                    <td><StatusBadge status={ev.statut || (ev.note_globale ? "termine" : "en_cours")} /></td>
+                                                    <td><StatusBadge status={ev.statut} decision={ev.decision} /></td>
                                                 </tr>
                                             )) : (
                                                 <tr><td colSpan="5" className="empty-cell">No evaluations found.</td></tr>

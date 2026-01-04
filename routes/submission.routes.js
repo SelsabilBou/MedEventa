@@ -7,6 +7,14 @@ const { uploadSubmissionPdf } = require('../middlewares/uploadPdf');
 const submissionController = require('../controllers/submission.controller');
 const { requirePermission } = require('../middlewares/permissions');
 
+// GET /api/events/submissions (all submissions for Super Admin)
+router.get(
+  '/submissions',
+  verifyToken,
+  requirePermission('view_submissions'),
+  submissionController.getAllSubmissionsController
+);
+
 // GET /api/events/:eventId/submissions
 router.get(
   '/:eventId/submissions',
