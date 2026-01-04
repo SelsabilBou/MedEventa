@@ -1,7 +1,7 @@
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const db = require("../db");
-const crypto = require("crypto"); // pour les codes temporaires
+const bcrypt = require("bcryptjs");//pour hacher le mot de passe
+const jwt = require("jsonwebtoken");//pour crier token JWT  apres login
+const db = require("../db");//connexion mysql
+const crypto = require("crypto"); // pour hacher les codes temporaires(reset password)
 const nodemailer = require("nodemailer"); // pour envoyer les emails
 
 // Tous les rôles possibles (doivent être les mêmes que l'ENUM dans la table utilisateur)
@@ -101,7 +101,7 @@ const login = (req, res) => {
   if (!email || !mot_de_passe) {
     console.log('Login failed: missing email or password');
     return res.status(400).json({ message: "Email et mot de passe requis" });
-  }
+  }// il faut de remplire le formulaire
 
   db.query(
     "SELECT * FROM utilisateur WHERE email = ?",
@@ -114,9 +114,7 @@ const login = (req, res) => {
 
       if (result.length === 0) {
         console.log('Login failed: user not found', email);
-        return res
-          .status(400)
-          .json({ message: "Email ou mot de passe incorrect" });
+        return res.status(400).json({ message: "Email ou mot de passe incorrect" });// le message qui affiche a l'utilisateur
       }
 
       const user = result[0];
@@ -150,7 +148,7 @@ const login = (req, res) => {
           institution: user.institution,
           domaine_recherche: user.domaine_recherche,
         },
-      });
+      });//Le front reçoit le token + les infos user pour les stocker
     }
   );
 };
@@ -174,7 +172,7 @@ const forgotPassword = (req, res) => {
         return res.json({
           message: "si cet email existe,un lien a été envoyé",
         });
-      }
+      }//verifier l'existence de l'utilisateur et son email
 
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       const codeHash = crypto.createHash("sha256").update(code).digest("hex");
