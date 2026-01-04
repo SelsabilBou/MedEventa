@@ -1,19 +1,18 @@
+// auth.routes.js
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
 
 const { registerValidation, validate } = require('../middlewares/validators');
+const { verifyToken } = require('../middlewares/auth.middlewares'); // ✅ زيدها
 
-// POST register (with validation)
 router.post('/register', registerValidation, validate, authController.register);
-
-// POST login
 router.post('/login', authController.login);
-
-// forgot password
 router.post('/forgot-password', authController.forgotPassword);
-
-// reset password
 router.post('/reset-password', authController.resetPassword);
+
+// ✅ NEW: profil user connecté
+router.get('/me', verifyToken, authController.getMe);
+router.patch('/me', verifyToken, authController.updateMe);
 
 module.exports = router;

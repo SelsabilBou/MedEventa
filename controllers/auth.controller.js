@@ -39,7 +39,7 @@ const register = async (req, res) => {
       // Hasher le mot de passe
       const hashedPassword = await bcrypt.hash(mot_de_passe, 10);
 
-      // Insertion en DB
+      // insertion dans la base de donne
       const sql = `
         INSERT INTO utilisateur 
           (nom, prenom, email, mot_de_passe, role, photo, institution, domaine_recherche)
@@ -52,15 +52,13 @@ const register = async (req, res) => {
         (err, resultInsert) => {
           if (err) {
             console.error('Erreur insertion:', err);
-            return res
-              .status(500)
-              .json({ message: "Erreur serveur lors de l'inscription" });
+            return res.status(500).json({ message: "Erreur serveur lors de l'inscription" });
           }
 
           res.status(201).json({
             message: 'Utilisateur créé avec succès',
             userId: resultInsert.insertId,
-            role, // pour vérifier côté front
+            role, 
           });
         }
       );
@@ -97,9 +95,7 @@ const login = (req, res) => {
 
     const isMatch = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
     if (!isMatch) {
-      return res
-        .status(400)
-        .json({ message: 'Email ou mot de passe incorrect' });
+      return res.status(400).json({ message: 'Email ou mot de passe incorrect' });
     }
 
     // Générer un token JWT
@@ -144,7 +140,7 @@ const forgotPassword = (req, res) => {
       if (result.length === 0) {
         return res.json({
           message: 'si cet email existe,un lien a été envoyé',
-        });
+        });// makanch email bsh nedirou heka pour la sécurite
       }
 
       const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -245,10 +241,68 @@ const sendResetEmail = async (to, code) => {
     html: `<p>Votre code (valide 5min) : <b>${code}</b></p>`,
   });
 };
+// GET ME (profil depuis DB)
+const getMe = (req, res) => {
+  const userId = req.user.id;
+
+  db.query(
+    `SELECT id, nom, prenom, email, role, photo, institution, domaine_recherche
+     FROM utilisateur
+     WHERE id = ?
+     LIMIT 1`,
+    [userId],
+    (err, rows) => {
+      if (err) {
+        console.error('Erreur DB getMe:', err);
+        return res.status(500).json({ message: 'Erreur serveur' });
+      }
+      if (!rows || rows.length === 0) {
+        return res.status(404).json({ message: 'Utilisateur introuvable' });
+      }
+      return res.json({ user: rows[0] });
+    }
+  );
+};
+
+// UPDATE ME (partial update)
+const updateMe = (req, res) => {
+  const userId = req.user.id;
+
+  const allowed = ['nom', 'prenom', 'email', 'photo', 'institution', 'domaine_recherche'];
+  const updates = {};
+  for (const k of allowed) {
+    if (req.body[k] !== undefined) updates[k] = req.body[k];
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ message: 'Aucun champ à mettre à jour' });
+  }
+
+  // بناء SET ديناميكي
+  const keys = Object.keys(updates);
+  const setSql = keys.map((k) => `${k} = ?`).join(', ');
+  const values = keys.map((k) => updates[k]);
+
+  const sql = `UPDATE utilisateur SET ${setSql} WHERE id = ?`;
+
+  db.query(sql, [...values, userId], (err, result) => {
+    if (err) {
+      // إذا email unique ودار conflict يطيح هنا (ER_DUP_ENTRY)
+      console.error('Erreur DB updateMe:', err);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+
+    return res.json({ message: 'Profil mis à jour' });
+  });
+};
+
 
 module.exports = {
   register,
   login,
   forgotPassword,
   resetPassword,
+  getMe,       // ✅
+  updateMe,    // ✅
 };
+

@@ -11,7 +11,7 @@ const permissions = {
     'manage_workshop_inscriptions',
     'manage_workshop_supports',
 
-    // ✅ ajout attestations
+    
     'generate_attestation',
     'view_attestations',
     'view_stats'
@@ -27,8 +27,6 @@ const permissions = {
     'view_workshops',
     'manage_workshop_inscriptions',
     'manage_workshop_supports',
-
-    // ✅ ajout attestations
     'generate_attestation',
     'view_attestations',
     'view_stats'
