@@ -1,6 +1,19 @@
 {
   "name": "medeventa",
   "version": "1.0.0",
+  "description": "le projet consiste à concevoir et développer une plateforme web complète de gestion d’événements scientifiques dans le domaine de la santé",
+  "keywords": [],
+  "homepage": "https://github.com/SelsabilBou/MedEventa#readme",
+  "bugs": {
+    "url": "https://github.com/SelsabilBou/MedEventa/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SelsabilBou/MedEventa.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -31,19 +44,6 @@
     "react-router-dom": "^7.11.0",
     "uuid": "^13.0.0"
   },
-  "description": "le projet consiste à concevoir et développer une plateforme web complète de gestion d’événements scientifiques dans le domaine de la santé",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/SelsabilBou/MedEventa.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/SelsabilBou/MedEventa/issues"
-  },
-  "homepage": "https://github.com/SelsabilBou/MedEventa#readme",
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.2",
     "nodemon": "^3.1.11",

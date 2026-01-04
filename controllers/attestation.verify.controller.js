@@ -1,5 +1,4 @@
-// controllers/attestation.verify.controller.js
-const { validationResult } = require('express-validator');
+const { validationResult } = require('express-validator');// recupere les 
 const { getAttestationByUniqueCode } = require('../models/attestation.model');
 
 function verifyAttestation(req, res) {
@@ -15,12 +14,11 @@ function verifyAttestation(req, res) {
       return res.status(500).json({ message: 'Erreur serveur', error: err });
     }
 
-    // ما لقاهاش => invalid
+    //if it does not exist so invalid
     if (!att) {
       return res.status(200).json({ valid: false });
-    }
-
-    // لقاها => valid + معلومات
+    } 
+    //valid = infos
     return res.status(200).json({
       valid: true,
       attestation: {
