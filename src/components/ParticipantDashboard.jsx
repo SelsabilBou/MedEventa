@@ -1,123 +1,59 @@
 import React, { useState, useEffect } from "react";
 import "./ParticipantDashboard.css";
-import DashboardLayout from "./DashboardLayout";
 import {
   FiClipboard,
   FiCalendar,
   FiBarChart2,
   FiAward,
 } from "react-icons/fi";
+import {
+  Home,
+  Clipboard,
+  Calendar,
+  BarChart2,
+  Award
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const ParticipantDashboard = () => {
+const ParticipantDashboard = ({ registrations = [] }) => {
   const rawUser = localStorage.getItem("user");
   const user = rawUser ? JSON.parse(rawUser) : null;
-  const token = localStorage.getItem("token");
   const navigate = useNavigate();
 
-  // State for counts
+  // State for counts calculated from registrations prop
   const [counts, setCounts] = useState({
     registrations: 0,
     certificates: 0,
     surveys: 0,
     programmes: 0,
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  // Fetch all counts from backend
   useEffect(() => {
-    const fetchDashboardStats = async () => {
-      try {
-        setLoading(true);
+    // Calculate counts from the registrations prop passed from App.jsx
+    const regCount = registrations.length;
 
-        if (!user?.id || !token) {
-          console.error("User ID or token not found");
-          return;
-        }
+    // Programmes = upcoming events
+    const today = new Date();
+    const programmesCount = registrations.filter(reg => new Date(reg.date) >= today).length;
 
-        const headers = {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        };
+    // Certificates = completed past events
+    const certificatesCount = registrations.filter(reg => reg.status === "confirmed" && new Date(reg.date) < today).length;
 
-        // 1. Fetch registrations count (from inscription controller)
-        const registrationsRes = await fetch(`/api/inscriptions/user/count`, {
-          headers,
-        });
+    // Surveys = pending surveys (using local storage fallback logic)
+    const savedSurveys = JSON.parse(localStorage.getItem("participantSurveys") || "{}");
+    const surveysCount = registrations.filter(reg => {
+      const key = `${reg.type}_${reg.id}`;
+      return !savedSurveys[key] || savedSurveys[key].status !== "completed";
+    }).length;
 
-        // 2. Fetch surveys count (from survey controller)
-        const surveysRes = await fetch(
-          `/api/surveys/user/count?userId=${user.id}`,
-          {
-            headers,
-          }
-        );
-
-        // 3. Fetch certificates count (from attestation controller)
-        const certificatesRes = await fetch(
-          `/api/attestations/user/count?userId=${user.id}`,
-          {
-            headers,
-          }
-        );
-
-        // 4. Fetch programmes count (from session/workshop controller)
-        const programmesRes = await fetch(
-          `/api/programmes/user/count?userId=${user.id}`,
-          {
-            headers,
-          }
-        );
-
-        // Parse responses
-        let registrationsCount = 0;
-        let surveysCount = 0;
-        let certificatesCount = 0;
-        let programmesCount = 0;
-
-        if (registrationsRes.ok) {
-          const data = await registrationsRes.json();
-          registrationsCount = data.count || 0;
-        }
-
-        if (surveysRes.ok) {
-          const data = await surveysRes.json();
-          surveysCount = data.count || 0;
-        }
-
-        if (certificatesRes.ok) {
-          const data = await certificatesRes.json();
-          certificatesCount = data.count || 0;
-        }
-
-        if (programmesRes.ok) {
-          const data = await programmesRes.json();
-          programmesCount = data.count || 0;
-        }
-
-        setCounts({
-          registrations: registrationsCount,
-          surveys: surveysCount,
-          certificates: certificatesCount,
-          programmes: programmesCount,
-        });
-      } catch (error) {
-        console.error("Error fetching dashboard stats:", error);
-        // Fallback to mock data or show error
-        setCounts({
-          registrations: 5,
-          surveys: 2,
-          certificates: 3,
-          programmes: 7,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardStats();
-  }, [user?.id, token]);
-
+    setCounts({
+      registrations: regCount,
+      certificates: certificatesCount,
+      surveys: surveysCount,
+      programmes: programmesCount,
+    });
+  }, [registrations]);
 
   // Card data for easier rendering
   const cards = [
@@ -125,9 +61,7 @@ const ParticipantDashboard = () => {
       id: 1,
       icon: <FiClipboard />,
       title: "My Registrations",
-      description: `View and manage ${
-        loading ? "..." : counts.registrations
-      } registered event${counts.registrations !== 1 ? "s" : ""}.`,
+      description: `View and manage ${counts.registrations} registered event${counts.registrations !== 1 ? "s" : ""}.`,
       buttonText: "Go to registrations",
       route: "/participant/registrations",
       count: counts.registrations,
@@ -137,9 +71,7 @@ const ParticipantDashboard = () => {
       id: 2,
       icon: <FiCalendar />,
       title: "Programmes",
-      description: `Browse ${loading ? "..." : counts.programmes} programme${
-        counts.programmes !== 1 ? "s" : ""
-      } for your events.`,
+      description: `Browse ${counts.programmes} programme${counts.programmes !== 1 ? "s" : ""} for your events.`,
       buttonText: "View programmes",
       route: "/participant/programme",
       count: counts.programmes,
@@ -149,9 +81,7 @@ const ParticipantDashboard = () => {
       id: 3,
       icon: <FiBarChart2 />,
       title: "Surveys & Feedback",
-      description: `You have ${
-        loading ? "..." : counts.surveys
-      } pending survey${counts.surveys !== 1 ? "s" : ""} to complete.`,
+      description: `You have ${counts.surveys} pending survey${counts.surveys !== 1 ? "s" : ""} to complete.`,
       buttonText: "Open surveys",
       route: "/participant/surveys",
       count: counts.surveys,
@@ -161,11 +91,7 @@ const ParticipantDashboard = () => {
       id: 4,
       icon: <FiAward />,
       title: "My Certificates",
-      description: `Download ${
-        loading ? "..." : counts.certificates
-      } certificate${counts.certificates !== 1 ? "s" : ""} and badge${
-        counts.certificates !== 1 ? "s" : ""
-      }.`,
+      description: `Download ${counts.certificates} certificate${counts.certificates !== 1 ? "s" : ""} and badge${counts.certificates !== 1 ? "s" : ""}.`,
       buttonText: "View certificates",
       route: "/participant/certificates",
       count: counts.certificates,
@@ -173,15 +99,111 @@ const ParticipantDashboard = () => {
     },
   ];
 
+  const handleHome = () => navigate("/");
+
+  // Navigation menu items
+  const navItems = [
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      icon: Home,
+      path: "/participant/dashboard",
+      active: true,
+    },
+    {
+      id: "registrations",
+      label: "Registrations",
+      icon: Clipboard,
+      path: "/participant/registrations",
+    },
+    {
+      id: "programme",
+      label: "Programmes",
+      icon: Calendar,
+      path: "/participant/programme",
+    },
+    {
+      id: "surveys",
+      label: "Surveys",
+      icon: BarChart2,
+      path: "/participant/surveys",
+    },
+    {
+      id: "certificates",
+      label: "Certificates",
+      icon: Award,
+      path: "/participant/certificates",
+    },
+  ];
+
   return (
-    <DashboardLayout>
-      <div className="pd-inner">
+    <div className="pd-wrapper-outer">
+      {/* App Bar */}
+      <div className="pd-appbar">
+        <div className="pd-appbar-brand">
+          <div className="pd-appbar-logo">ME</div>
+          <span className="pd-appbar-title">MedEventa</span>
+        </div>
+
+        <button type="button" className="pd-home-btn" onClick={handleHome}>
+          <Home className="pd-home-icon" />
+          Back to home
+        </button>
+      </div>
+
+      {/* Navigation Sidebar */}
+      <nav className="pd-sidebar">
+        <div className="pd-sidebar-header">
+          <div className="pd-user-info">
+            <div className="pd-user-avatar">
+              {user?.prenom?.charAt(0) || "U"}
+            </div>
+            <div className="pd-user-details">
+              <span className="pd-user-name">
+                {user?.prenom} {user?.nom || ""}
+              </span>
+              <span className="pd-user-role">Participant</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="pd-nav-items">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`pd-nav-item ${item.active ? "active" : ""}`}
+              onClick={() => navigate(item.path)}
+            >
+              <item.icon className="pd-nav-icon" />
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="pd-sidebar-footer">
+          <button
+            type="button"
+            className="pd-logout-btn"
+            onClick={() => {
+              localStorage.removeItem("token");
+              localStorage.removeItem("user");
+              navigate("/login");
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      </nav>
+
+      <div className="pd-main-content">
+        <div className="pd-inner">
           {/* Header */}
           <header className="pd-header">
             <div>
               <h1>Participant Dashboard</h1>
               <p>
-                Welcome{user?.name ? `, ${user.name}` : ""}. Manage your
+                Welcome{user?.prenom ? `, ${user.prenom}` : ""}. Manage your
                 registrations, programmes, surveys and certificates from one
                 place.
               </p>
@@ -194,25 +216,25 @@ const ParticipantDashboard = () => {
           <div className="pd-stats-summary">
             <div className="pd-stat-item">
               <span className="pd-stat-number">
-                {loading ? "..." : counts.registrations}
+                {counts.registrations}
               </span>
               <span className="pd-stat-label">Registrations</span>
             </div>
             <div className="pd-stat-item">
               <span className="pd-stat-number">
-                {loading ? "..." : counts.surveys}
+                {counts.surveys}
               </span>
               <span className="pd-stat-label">Pending Surveys</span>
             </div>
             <div className="pd-stat-item">
               <span className="pd-stat-number">
-                {loading ? "..." : counts.certificates}
+                {counts.certificates}
               </span>
               <span className="pd-stat-label">Certificates</span>
             </div>
             <div className="pd-stat-item">
               <span className="pd-stat-number">
-                {loading ? "..." : counts.programmes}
+                {counts.programmes}
               </span>
               <span className="pd-stat-label">Programmes</span>
             </div>
@@ -224,12 +246,12 @@ const ParticipantDashboard = () => {
               <section key={card.id} className="pd-card pd-animate">
                 <div className={`pd-card-icon ${card.iconClass}`}>
                   {card.icon}
-                  {!loading && card.count > 0 && (
+                  {card.count > 0 && (
                     <span className="pd-count-badge">{card.count}</span>
                   )}
                 </div>
                 <h2>{card.title}</h2>
-                <p>{loading ? "Loading..." : card.description}</p>
+                <p>{card.description}</p>
                 <button
                   type="button"
                   className="pd-btn"
@@ -240,8 +262,9 @@ const ParticipantDashboard = () => {
               </section>
             ))}
           </div>
+        </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 };
 

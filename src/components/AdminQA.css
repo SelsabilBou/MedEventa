@@ -1,0 +1,202 @@
+.admin-qa-container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.qa-tabs {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.qa-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: white;
+    border: 1px solid rgba(93, 123, 138, 0.1);
+    border-radius: 14px;
+    color: #5d7b8a;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.qa-tab.active {
+    background: #0f9d8a;
+    color: white;
+    box-shadow: 0 4px 12px rgba(15, 157, 138, 0.3);
+}
+
+.qa-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 16px;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(93, 123, 138, 0.08);
+}
+
+.qa-card.pending {
+    border-left: 4px solid #f39c12;
+}
+
+.qa-card-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.qa-card-header .user {
+    font-weight: 700;
+    color: #12324a;
+}
+
+.qa-card-header .timestamp {
+    color: #6c8895;
+}
+
+.question {
+    color: #12324a;
+    line-height: 1.5;
+    margin-bottom: 1.25rem;
+}
+
+.qa-card-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.btn-reply {
+    background: #0f9d8a;
+    color: white;
+    border: none;
+    padding: 0.5rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-dismiss {
+    background: #f1f5f9;
+    color: #5d7b8a;
+    border: none;
+    padding: 0.5rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.survey-row {
+    background: white;
+    padding: 1.25rem 1.5rem;
+    border-radius: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(93, 123, 138, 0.05);
+}
+
+.survey-info h4 {
+    color: #12324a;
+    margin-bottom: 0.25rem;
+}
+
+.survey-info p {
+    font-size: 0.85rem;
+    color: #6c8895;
+}
+
+.survey-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.btn-view-results {
+    background: #e0f2f1;
+    color: #0f9d8a;
+    border: 1px solid rgba(15, 157, 138, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.btn-view-results:hover {
+    background: #0f9d8a;
+    color: white;
+}
+
+.btn-more {
+    background: transparent;
+    color: #5d7b8a;
+    border: 1px solid #e2e8f0;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.btn-more:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+/* Results Modal Styles */
+.results-question {
+    background: #f8fafc;
+    padding: 1.25rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    border: 1px solid #e2e8f0;
+}
+
+.results-question h4 {
+    color: #1e293b;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 0.75rem;
+}
+
+.response-item {
+    display: flex;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px dashed #e2e8f0;
+}
+
+.response-item:last-child {
+    border-bottom: none;
+}
+
+.response-user {
+    font-weight: 600;
+    color: #475569;
+    min-width: 120px;
+}
+
+.response-text {
+    color: #1e293b;
+    flex: 1;
+}
+
+.no-responses {
+    color: #94a3b8;
+    font-style: italic;
+    padding: 0.5rem 0;
+}

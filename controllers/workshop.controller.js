@@ -5,6 +5,8 @@ const {
   createWorkshop,
   getWorkshopsByEvent,
   getWorkshopById,
+  getWorkshopsByResponsible, // NEW
+  getAllWorkshopsWithStats, // NEW
   updateWorkshop,
   deleteWorkshop,
   eventExists,
@@ -14,8 +16,8 @@ const {
 // Phase 4: pour vérifier qu'on ne baisse pas nb_places sous le nombre d'inscrits
 const { countRegistrations } = require('../models/workshopRegistration.model');
 
-// ✅ PHASE 5: check date workshop dans interval event
 const { checkWorkshopDateInEvent } = require('../models/event.model');
+const { createNotification } = require('../models/notification.model');
 
 // Convertit ISO8601 -> 'YYYY-MM-DD HH:MM:SS' (MySQL DATETIME)
 const isoToMySQLDateTime = (isoString) => {
@@ -37,6 +39,33 @@ const listWorkshops = (req, res) => {
   const eventId = parseInt(req.params.eventId, 10);
 
   getWorkshopsByEvent(eventId, (err, rows) => {
+    if (err) {
+      return res.status(500).json({ message: 'Erreur serveur', error: err.message });
+    }
+    return res.status(200).json(rows);
+  });
+};
+
+// Phase 4: get workshops where user is responsible (or ALL if Admin/Organizer)
+const listMyWorkshops = (req, res) => {
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ message: 'Non authentifié' });
+  }
+
+  // If Admin or Organizer, fetch ALL workshops with stats
+  if (req.user.role === 'SUPER_ADMIN' || req.user.role === 'ORGANISATEUR') {
+    getAllWorkshopsWithStats((err, rows) => {
+      if (err) {
+        return res.status(500).json({ message: 'Erreur serveur', error: err.message });
+      }
+      return res.status(200).json(rows);
+    });
+    return;
+  }
+
+  // Otherwise (RESP_WORKSHOP), fetch only assigned ones
+  const responsibleId = req.user.id;
+  getWorkshopsByResponsible(responsibleId, (err, rows) => {
     if (err) {
       return res.status(500).json({ message: 'Erreur serveur', error: err.message });
     }
@@ -69,7 +98,7 @@ const createWorkshopController = (req, res) => {
   }
 
   const eventId = parseInt(req.params.eventId, 10);
-  const { titre, responsable_id, date, nb_places } = req.body;
+  const { titre, description, responsable_id, date, salle, level, price, nb_places, ouvert } = req.body;
 
   // Phase 4: si RESP_WORKSHOP crée, il doit créer seulement pour lui-même
   if (req.user.role === 'RESP_WORKSHOP' && Number(responsable_id) !== Number(req.user.id)) {
@@ -111,14 +140,24 @@ const createWorkshopController = (req, res) => {
         {
           evenement_id: eventId,
           titre,
+          description: description || null,
           responsable_id,
           date: mysqlDate,
+          salle,
+          level: level || 'beginner',
+          price: price || 0,
           nb_places,
+          ouvert: ouvert ?? true,
         },
         (err3, workshopId) => {
           if (err3) {
             return res.status(500).json({ message: 'Erreur serveur', error: err3.message });
           }
+
+          // Send notification to Organizer
+          createNotification(req.user.id, eventId, 'workshop_created', `Votre workshop "${titre}" a été créé avec succès.`)
+            .catch(nErr => console.error("Notification WS creation error:", nErr));
+
           return res.status(201).json({ message: 'Workshop créé', workshopId });
         }
       );
@@ -134,7 +173,7 @@ const updateWorkshopController = (req, res) => {
   }
 
   const workshopId = parseInt(req.params.workshopId, 10);
-  const { titre, responsable_id, date, nb_places } = req.body;
+  const { titre, description, responsable_id, date, salle, level, price, nb_places, ouvert } = req.body;
 
   getWorkshopById(workshopId, (err, workshop) => {
     if (err) {
@@ -160,9 +199,14 @@ const updateWorkshopController = (req, res) => {
 
     const merged = {
       titre: titre ?? workshop.titre,
+      description: description ?? workshop.description,
       responsable_id: responsable_id ?? workshop.responsable_id,
       date: workshop.date,
+      salle: salle ?? workshop.salle,
+      level: level ?? workshop.level,
+      price: price ?? workshop.price,
       nb_places: nb_places ?? workshop.nb_places,
+      ouvert: ouvert ?? workshop.ouvert,
     };
 
     if (date !== undefined) {
@@ -273,10 +317,39 @@ const deleteWorkshopController = (req, res) => {
   });
 };
 
+const { getWaitlistCount } = require('../models/workshopRegistration.model');
+
+const getWorkshopStats = (req, res) => {
+  const workshopId = parseInt(req.params.workshopId, 10);
+
+  getWorkshopById(workshopId, (err, workshop) => {
+    if (err) return res.status(500).json({ message: 'Erreur serveur', error: err.message });
+    if (!workshop) return res.status(404).json({ message: 'Workshop introuvable' });
+
+    countRegistrations(workshopId, (err2, count) => {
+      if (err2) return res.status(500).json({ message: 'Erreur serveur', error: err2.message });
+
+      getWaitlistCount(workshopId, (err3, waitlist) => {
+        if (err3) return res.status(500).json({ message: 'Erreur serveur', error: err3.message });
+
+        return res.status(200).json({
+          id: workshop.id,
+          nb_places: workshop.nb_places,
+          registered: count,
+          waitlist: waitlist,
+          occupancy: workshop.nb_places ? Math.round((count / workshop.nb_places) * 100) : 0
+        });
+      });
+    });
+  });
+};
+
 module.exports = {
   listWorkshops,
+  listMyWorkshops,
   getWorkshopController,
   createWorkshopController,
   updateWorkshopController,
   deleteWorkshopController,
+  getWorkshopStats,
 };

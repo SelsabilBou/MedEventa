@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   ArrowLeft,
   Download,
@@ -7,55 +7,60 @@ import {
   Clipboard,
   Award,
   BarChart2,
+  Search,
+  SlidersHorizontal
 } from "lucide-react";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import axios from "axios";
 import "./ParticipantCertificates.css";
-import CertificatePreview from "./CertificatePreview";
 import { useNavigate } from "react-router-dom";
 
-const ParticipantCertificates = ({ registrations }) => {
+const ParticipantCertificates = () => {
   const navigate = useNavigate();
+  const [certificates, setCertificates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
-  // only confirmed registrations with past dates
-  const certificateItems = registrations.filter((reg) => {
-    if (reg.status !== "confirmed") return false;
-    const eventDate = new Date(reg.date); // expects parsable date string
-    const today = new Date();
-    return eventDate < today;
-  });
+  const rawUser = localStorage.getItem("user");
+  const user = rawUser ? JSON.parse(rawUser) : {};
 
-  const [currentCert, setCurrentCert] = useState(null);
-  const certRef = useRef(null);
+  // Fetch certificates on mount
+  useEffect(() => {
+    const fetchCertificates = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setError("Not authenticated");
+          setLoading(false);
+          return;
+        }
 
-  const handleDownload = async (reg) => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const participantName = user.name || "Participant";
+        const res = await axios.get("/api/attestations/me/list", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setCertificates(res.data.attestations || []);
+      } catch (err) {
+        console.error("Error fetching certificates", err);
+        setError("Failed to load certificates");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // set data for hidden certificate
-    setCurrentCert({
-      participantName,
-      title: reg.title,
-      date: reg.date,
-    });
+    fetchCertificates();
+  }, []);
 
-    // let React render the hidden component
-    requestAnimationFrame(async () => {
-      if (!certRef.current) return;
 
-      const canvas = await html2canvas(certRef.current, {
-        scale: 2,
-        useCORS: true,
-      });
-      const imgData = canvas.toDataURL("image/png");
-
-      const pdf = new jsPDF("landscape", "pt", "a4");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      pdf.addImage(imgData, "PNG", 0, 0, pageWidth, pageHeight);
-      pdf.save(`${reg.title}-certificate.pdf`);
-    });
+  const handleDownloadPDF = (cert) => {
+    // Trigger backend download endpoint
+    // /api/attestations/me/download?type=workshop&eventId=X&workshopId=Y
+    const token = localStorage.getItem("token");
+    let url = `/api/attestations/me/download?token=${token}&type=${cert.type}&eventId=${cert.evenement_id}`;
+    if (cert.workshop_id) {
+      url += `&workshopId=${cert.workshop_id}`;
+    }
+    window.open(url, '_blank');
   };
 
   const handleBack = () => {
@@ -65,6 +70,14 @@ const ParticipantCertificates = ({ registrations }) => {
   const handleHome = () => {
     navigate("/");
   };
+
+  // Filter logic
+  const filteredCertificates = certificates.filter(c => {
+    const title = c.type === 'workshop'
+      ? (c.workshop_titre || `Workshop #${c.workshop_id}`)
+      : (c.event_titre || `Event #${c.evenement_id}`);
+    return title.toLowerCase().includes(search.toLowerCase());
+  });
 
   // Navigation menu items
   const navItems = [
@@ -103,18 +116,6 @@ const ParticipantCertificates = ({ registrations }) => {
 
   return (
     <>
-      {/* hidden certificate used only for PDF capture */}
-      <div style={{ position: "fixed", top: -9999, left: -9999 }}>
-        {currentCert && (
-          <CertificatePreview
-            ref={certRef}
-            participantName={currentCert.participantName}
-            eventTitle={currentCert.title}
-            date={currentCert.date}
-          />
-        )}
-      </div>
-
       <div className="pc-wrapper">
         {/* App Bar at the top */}
         <div className="pc-appbar">
@@ -134,14 +135,11 @@ const ParticipantCertificates = ({ registrations }) => {
           <div className="pc-sidebar-header">
             <div className="pc-user-info">
               <div className="pc-user-avatar">
-                {JSON.parse(localStorage.getItem("user") || "{}")?.name?.charAt(
-                  0
-                ) || "U"}
+                {user?.name?.charAt(0) || user?.prenom?.charAt(0) || "U"}
               </div>
               <div className="pc-user-details">
                 <span className="pc-user-name">
-                  {JSON.parse(localStorage.getItem("user") || "{}")?.name ||
-                    "User"}
+                  {user?.name || `${user.prenom || ''} ${user.nom || ''}` || "User"}
                 </span>
                 <span className="pc-user-role">Participant</span>
               </div>
@@ -168,7 +166,6 @@ const ParticipantCertificates = ({ registrations }) => {
               className="pc-logout-btn"
               onClick={() => {
                 localStorage.removeItem("token");
-                localStorage.removeItem("user");
                 navigate("/login");
               }}
             >
@@ -181,28 +178,11 @@ const ParticipantCertificates = ({ registrations }) => {
         <div className="pc-main-content">
           <div className="pc-inner">
             <header className="pc-header">
-              <div className="pc-header-content">
-                <div className="pc-header-title-row">
-                  <h1>My Certificates</h1>
-                  <span className="pc-header-pill">Download PDFs</span>
-                </div>
+              <div>
+                <h1>My Certificates</h1>
                 <p className="pc-subtitle">
-                  Download certificates for events and workshops you have
-                  successfully attended.
+                  Download your certificates of attendance for past events.
                 </p>
-
-                <div className="pc-header-meta">
-                  <div className="pc-meta-item">
-                    <Award />
-                    <span>
-                      {certificateItems.length} available certificates
-                    </span>
-                  </div>
-                  <div className="pc-meta-item">
-                    <Download />
-                    <span>Ready to download</span>
-                  </div>
-                </div>
               </div>
 
               <button
@@ -215,69 +195,100 @@ const ParticipantCertificates = ({ registrations }) => {
               </button>
             </header>
 
-            <div className="pc-table-container">
-              <table className="pc-table">
-                <thead>
-                  <tr>
-                    <th>Event / Workshop</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th>Certificate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {certificateItems.map((reg) => (
-                    <tr key={reg.id}>
-                      <td>
-                        <div className="pc-event-main">
-                          <span className="pc-event-title">{reg.title}</span>
-                          {reg.parent && (
-                            <span className="pc-event-parent">
-                              {reg.parent}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="pc-date-wrapper">
-                          <Calendar className="pc-date-icon" />
-                          <span>{reg.date}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="pc-status-pill pc-status-completed">
-                          COMPLETED
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="pc-download-btn"
-                          onClick={() => handleDownload(reg)}
-                        >
-                          <Download />
-                          <span>Download PDF</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+            {/* search bar */}
+            <div className="pc-toolbar">
+              <div className="pc-search">
+                <Search className="pc-search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search certificates..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <button type="button" className="pc-filter-btn">
+                <SlidersHorizontal />
+              </button>
+            </div>
 
-                  {certificateItems.length === 0 && (
+            <div className="pc-table-container">
+              {loading ? (
+                <p style={{ padding: '2rem' }}>Loading certificates...</p>
+              ) : (
+                <table className="pc-table">
+                  <thead>
                     <tr>
-                      <td colSpan={4} className="pc-empty">
-                        <div className="pc-empty-state">
-                          <Award className="pc-empty-icon" />
-                          <h3>No certificates available yet</h3>
-                          <p>
-                            Certificates will appear here once an event is
-                            finished and your registration is confirmed.
-                          </p>
-                        </div>
-                      </td>
+                      <th>Event / Workshop</th>
+                      <th>Type</th>
+                      <th>Date</th>
+                      <th>Certificate</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filteredCertificates.map((cert) => (
+                      <tr key={cert.id}>
+                        <td>
+                          <div className="pc-event-main">
+                            <span className="pc-event-title">
+                              {cert.type === 'workshop' ? cert.workshop_titre : cert.event_titre}
+                            </span>
+                            {cert.type === 'workshop' && (
+                              <span className="pc-event-parent">
+                                Event: {cert.event_titre}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`pc-status-pill ${cert.type === 'workshop' ? 'pc-status-upcoming' : 'pc-status-completed'}`}
+                            style={cert.type === 'workshop' ? { background: '#e3f2fd', color: '#0d47a1' } : {}}
+                          >
+                            {cert.type.toUpperCase()}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="pc-date-wrapper">
+                            <Calendar className="pc-date-icon" />
+                            <span>
+                              {cert.date_generation
+                                ? new Date(cert.date_generation).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })
+                                : "N/A"}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="pc-download-btn"
+                            onClick={() => handleDownloadPDF(cert)}
+                          >
+                            <Download />
+                            <span>Download PDF</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {filteredCertificates.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="pc-empty">
+                          <div className="pc-empty-state">
+                            <Award className="pc-empty-icon" />
+                            <h3>No certificates found</h3>
+                            <p>
+                              Certificates will appear here once generated.
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>

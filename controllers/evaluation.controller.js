@@ -11,6 +11,9 @@ const {
   listReportsModel,
 } = require('../models/evaluation.model');
 
+const { setSubmissionStatus } = require('../models/submission.model');
+const { createNotification } = require('../models/notification.model');
+
 // POST /api/evaluations/event/:eventId/assign-manual
 // Body: { "propositionId": 3, "evaluateurIds": [1, 2, 5] }
 const assignManually = (req, res) => {
@@ -203,6 +206,51 @@ const submitEvaluationController = async (req, res) => {
           .json({ message: 'Erreur lors de la soumission' });
       }
 
+      // === NEW: Auto-update status and notify author ===
+      let newStatus = null;
+      let notifType = null;
+      let notifMessage = null;
+
+      if (decision === 'accepter') {
+        newStatus = 'acceptee';
+        notifType = 'submission_accepted';
+        notifMessage = 'Félicitations ! Votre soumission a été acceptée par le comité scientifique.';
+      } else if (decision === 'refuser') {
+        newStatus = 'refusee';
+        notifType = 'submission_refused';
+        notifMessage = 'Votre soumission a été refusée par le comité scientifique.';
+      } else if (decision === 'corriger') {
+        newStatus = 'en_revision';
+        notifType = 'submission_revision';
+        notifMessage = 'Votre soumission nécessite des corrections. Veuillez consulter les recommandations du comité.';
+      }
+
+      if (newStatus) {
+        // Fetch submission title and event name for better notification
+        const sqlInfo = `
+          SELECT c.titre, e.titre as evenement_nom, c.auteur_id 
+          FROM communication c
+          JOIN evenement e ON c.evenement_id = e.id
+          WHERE c.id = ?
+        `;
+        db.query(sqlInfo, [communicationId], (errInfo, infoRows) => {
+          if (!errInfo && infoRows.length > 0) {
+            const { titre, evenement_nom, auteur_id: auteurId } = infoRows[0];
+            const finalNotifMessage = `Your submission "${titre}" for "${evenement_nom}" has been ${newStatus}.`;
+
+            // Update status
+            setSubmissionStatus(communicationId, newStatus, userId, (errStatus) => {
+              if (errStatus) console.error('Failed to auto-update status:', errStatus);
+            });
+
+            // Send notification
+            createNotification(auteurId, null, notifType, finalNotifMessage)
+              .catch(errNotif => console.error('Failed to send notification:', errNotif));
+          }
+        });
+      }
+      // ============================================
+
       res.status(200).json({
         message: 'Évaluation soumise avec succès',
         evaluationId,
@@ -296,6 +344,111 @@ const listReports = (req, res) => {
   );
 };
 
+
+
+// PHASE 5: Get assignments for logged-in committee member
+const getMyAssignments = (req, res) => {
+  const userId = req.user.id;
+
+  // Need to import this function at the top or use require inside (but top is better)
+  // assuming I update imports in next step or use require inline if needed, but clean is better
+  // Let's use the one imported at top (I need to update top imports)
+
+  require('../models/evaluation.model').getAssignmentsByUser(userId, (err, rows) => {
+    if (err) {
+      console.error('Erreur getMyAssignments:', err);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+    res.json(rows);
+  });
+};
+
+// NEW: Get all submissions for events where this user is a committee member
+const getCommitteeSubmissions = (req, res) => {
+  const userId = req.user.id;
+  const userRole = req.user.role;
+  console.log(`--- getCommitteeSubmissions called for user: ${userId} (${userRole}) ---`);
+  console.log('--- Authorization Header:', req.headers.authorization);
+
+  const sql = `
+    SELECT 
+      c.id as id,
+      c.titre,
+      c.resume,
+      c.type,
+      c.evenement_id,
+      c.auteur_id,
+      u.nom as auteur_principal_nom,
+      u.prenom as auteur_principal_prenom,
+      e.id as evaluation_id,
+      CASE 
+        WHEN e.date_evaluation IS NOT NULL THEN 'evaluated'
+        WHEN e.id IS NOT NULL THEN 'pending'
+        ELSE 'pending'
+      END as status
+    FROM communication c
+    JOIN evenement ev ON c.evenement_id = ev.id
+    JOIN comite_scientifique cs ON cs.evenement_id = ev.id
+    JOIN membre_comite mc ON mc.comite_id = cs.id
+    LEFT JOIN utilisateur u ON u.id = c.auteur_id
+    LEFT JOIN evaluation e ON e.communication_id = c.id AND e.membre_comite_id = mc.id
+    WHERE mc.utilisateur_id = ?
+    ORDER BY c.id DESC
+  `;
+
+  db.query(sql, [userId], (err, rows) => {
+    if (err) {
+      console.error('Error fetching committee submissions:', err);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+    console.log('--- Found submissions:', rows.length);
+    const results = rows.map(r => ({
+      ...r,
+      auteur_principal: `${r.auteur_principal_prenom || ''} ${r.auteur_principal_nom || ''}`.trim() || 'Inconnu'
+    }));
+    res.json(results);
+  });
+};
+
+// NEW: Start/Initialize an evaluation
+const startEvaluationController = (req, res) => {
+  const { communicationId } = req.body;
+  const userId = req.user.id;
+
+  if (!communicationId) return res.status(400).json({ message: "Communication ID required" });
+
+  const sqlComm = "SELECT evenement_id FROM communication WHERE id = ?";
+  db.query(sqlComm, [communicationId], (err, commRows) => {
+    if (err) return res.status(500).json({ message: "Server error" });
+    if (commRows.length === 0) return res.status(404).json({ message: "Communication not found" });
+    const eventId = commRows[0].evenement_id;
+
+    const sqlMembre = `
+      SELECT mc.id 
+      FROM membre_comite mc
+      JOIN comite_scientifique cs ON mc.comite_id = cs.id
+      WHERE cs.evenement_id = ? AND mc.utilisateur_id = ?
+    `;
+    db.query(sqlMembre, [eventId, userId], (err2, membreRows) => {
+      if (err2) return res.status(500).json({ message: "Server error" });
+      if (membreRows.length === 0) return res.status(403).json({ message: "You are not a committee member for this event" });
+      const membreComiteId = membreRows[0].id;
+
+      const sqlCheck = "SELECT id FROM evaluation WHERE communication_id = ? AND membre_comite_id = ?";
+      db.query(sqlCheck, [communicationId, membreComiteId], (err3, evalRows) => {
+        if (err3) return res.status(500).json({ message: "Server error" });
+        if (evalRows.length > 0) return res.json({ evaluationId: evalRows[0].id });
+
+        const sqlInsert = "INSERT INTO evaluation (communication_id, membre_comite_id) VALUES (?, ?)";
+        db.query(sqlInsert, [communicationId, membreComiteId], (err4, result) => {
+          if (err4) return res.status(500).json({ message: "Error creating evaluation entry" });
+          res.status(201).json({ evaluationId: result.insertId });
+        });
+      });
+    });
+  });
+};
+
 module.exports = {
   assignManually,
   getEvaluationFormController,
@@ -303,4 +456,7 @@ module.exports = {
   generateReportController,
   listEvaluations,
   listReports,
+  getMyAssignments,
+  getCommitteeSubmissions,
+  startEvaluationController,
 };

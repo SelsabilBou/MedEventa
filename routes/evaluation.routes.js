@@ -2,11 +2,15 @@
 const express = require('express');
 const router = express.Router();
 
+console.log('--- evaluation.routes.js loaded ---');
+
 const {
   assignManually,
   getEvaluationFormController,
   submitEvaluationController,
   generateReportController,
+  getCommitteeSubmissions,
+  startEvaluationController,
 } = require('../controllers/evaluation.controller');
 
 const {
@@ -17,6 +21,9 @@ const {
 const { verifyToken } = require('../middlewares/auth.middlewares');
 const { requirePermission } = require('../middlewares/permissions');
 
+// TEST PING
+router.get('/ping', (req, res) => res.json({ message: 'Evaluation router is alive' }));
+
 // POST /api/evaluations/event/:eventId/assign-manual
 router.post(
   '/event/:eventId/assign-manual',
@@ -24,6 +31,30 @@ router.post(
   requirePermission('manage_evaluations'),
   assignManualValidation,
   assignManually
+);
+
+// GET /api/evaluations/committee/all-submissions
+router.get(
+  '/committee/all-submissions',
+  verifyToken,
+  requirePermission('evaluate_communications'),
+  getCommitteeSubmissions
+);
+
+// GET /api/evaluations/my-assignments
+router.get(
+  '/my-assignments',
+  verifyToken,
+  requirePermission('evaluate_communications'), // Committee members have this permission
+  require('../controllers/evaluation.controller').getMyAssignments
+);
+
+// POST /api/evaluations/start-evaluation
+router.post(
+  '/start-evaluation',
+  verifyToken,
+  requirePermission('evaluate_communications'),
+  startEvaluationController
 );
 
 // GET /api/evaluations/evaluation/:evaluationId/form (Phase 2)
@@ -52,8 +83,9 @@ router.post(
 );
 
 // PHASE 5 – simple pagination for organiser
+// PHASE 5 – simple pagination for organiser
 router.get(
-  '/evaluations',
+  '/',
   verifyToken,
   requirePermission('manage_evaluations'),
   require('../controllers/evaluation.controller').listEvaluations

@@ -76,7 +76,29 @@ const getSurveyResults = (surveyId, callback) => {
     callback(null, results);
   });
 };
+
+// Get all surveys for an event
+const getSurveysByEvent = (eventId, callback) => {
+  const sql = `
+    SELECT 
+      id,
+      title,
+      description,
+      created_at
+    FROM survey
+    WHERE event_id = ?
+    ORDER BY created_at DESC
+  `;
+
+  db.query(sql, [eventId], (err, results) => {
+    if (err) return callback(err);
+    callback(null, results);
+  });
+};
+
 module.exports = {
   createSurvey,
-  submitResponse,getSurveyResults,
+  submitResponse,
+  getSurveyResults,
+  getSurveysByEvent,
 };

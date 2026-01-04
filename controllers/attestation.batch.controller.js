@@ -6,12 +6,16 @@ const {
   upsertAttestation
 } = require('../models/attestation.model');
 
+const { createNotification } = require('../models/notification.model');
+
 const {
   isEventFinished,
   isParticipantInscrit,
   hasAcceptedCommunication,
   isMembreComiteForEvent,
-  isOrganisateurForEvent
+  isOrganisateurForEvent,
+  isWorkshopParticipant,
+  isWorkshopFinished
 } = require('../utils/attestationEligibility');
 
 const AttestationService = require('../services/attestation.service');
@@ -49,7 +53,7 @@ function promisifyUpsertAttestation(attData) {
 /**
  * GET ELIGIBILITY per type
  */
-async function isEligible(eventId, userId, type) {
+async function isEligible(eventId, userId, type, workshopId) {
   if (type === 'participant') {
     return promisifyEligibility(isParticipantInscrit, eventId, userId);
   }
@@ -61,6 +65,16 @@ async function isEligible(eventId, userId, type) {
   }
   if (type === 'organisateur') {
     return promisifyEligibility(isOrganisateurForEvent, eventId, userId);
+  }
+  if (type === 'workshop') {
+    // promisifyEligibility expects (eventId, userId, cb), but isWorkshopParticipant needs (workshopId, userId, cb)
+    // wrapper:
+    return new Promise((resolve, reject) => {
+      isWorkshopParticipant(workshopId, userId, (err, ok) => {
+        if (err) return reject(err);
+        resolve(!!ok);
+      });
+    });
   }
   return false;
 }
@@ -84,7 +98,7 @@ async function generateBatchForEvent(req, res) {
   // ✅ FIX: validator راه يدير toBoolean() => نخدمو مباشرة boolean
   const force = !!req.query.force;
 
-  const { userIds, types } = req.body;
+  const { userIds, types, workshopId } = req.body;
 
   // نخليه (حتى لو validators راهم يتحققو) باش تكون safety زيادة
   if (!Array.isArray(userIds) || userIds.length === 0) {
@@ -94,7 +108,7 @@ async function generateBatchForEvent(req, res) {
     });
   }
 
-  const allowedTypes = ['participant', 'communicant', 'membre_comite', 'organisateur'];
+  const allowedTypes = ['participant', 'communicant', 'membre_comite', 'organisateur', 'workshop'];
   const targetTypes = Array.isArray(types) && types.length ? types : allowedTypes;
 
   const invalidType = targetTypes.find(t => !allowedTypes.includes(t));
@@ -102,26 +116,50 @@ async function generateBatchForEvent(req, res) {
     return res.status(400).json({ message: 'Type invalide', reason: 'TYPE_INVALIDE', invalidType });
   }
 
-  // 1) event finished?
-  const evResult = await new Promise((resolve, reject) => {
-    isEventFinished(eventId, (err, r) => {
-      if (err) return reject(err);
-      resolve(r);
+  // 1) event/workshop finished?
+  if (targetTypes.includes('workshop')) {
+    if (!workshopId) {
+      return res.status(400).json({ message: 'Workshop ID required for workshop batch' });
+    }
+    // Check workshop finished
+    const wResult = await new Promise((resolve, reject) => {
+      isWorkshopFinished(workshopId, (err, r) => {
+        if (err) return reject(err);
+        resolve(r);
+      });
+    }).catch((err) => {
+      return { error: err };
     });
-  }).catch((err) => {
-    return res.status(500).json({ message: 'Erreur vérification événement', error: err });
-  });
 
-  if (!evResult) return;
-
-  if (!evResult.ok && evResult.reason === 'EVENT_NOT_FOUND') {
-    return res.status(404).json({ message: 'Événement introuvable' });
-  }
-  if (!evResult.ok && evResult.reason === 'EVENT_NOT_FINISHED') {
-    return res.status(403).json({
-      message: 'Attestations non disponibles avant la fin de l’événement',
-      reason: 'EVENT_NOT_FINISHED'
+    if (wResult.error) return res.status(500).json({ message: 'Error checking workshop', error: wResult.error });
+    if (!wResult.ok) {
+      return res.status(403).json({
+        message: 'Attestations non disponibles avant la fin du workshop',
+        reason: wResult.reason
+      });
+    }
+  } else {
+    // Check event finished
+    const evResult = await new Promise((resolve, reject) => {
+      isEventFinished(eventId, (err, r) => {
+        if (err) return reject(err);
+        resolve(r);
+      });
+    }).catch((err) => {
+      return res.status(500).json({ message: 'Erreur vérification événement', error: err });
     });
+
+    if (!evResult) return;
+
+    if (!evResult.ok && evResult.reason === 'EVENT_NOT_FOUND') {
+      return res.status(404).json({ message: 'Événement introuvable' });
+    }
+    if (!evResult.ok && evResult.reason === 'EVENT_NOT_FINISHED') {
+      return res.status(403).json({
+        message: 'Attestations non disponibles avant la fin de l’événement',
+        reason: 'EVENT_NOT_FINISHED'
+      });
+    }
   }
 
   const report = {
@@ -139,13 +177,32 @@ async function generateBatchForEvent(req, res) {
   for (const userId of userIds) {
     for (const type of targetTypes) {
       try {
-        const existing = await promisifyGetAttByUser(eventId, userId, type);
-        if (existing && !force) {
+        const existing = await promisifyGetAttByUser(eventId, userId, type); // TODO: Update promisifyGetAttByUser to support workshopId if needed? 
+        // Logic: if existing, skip.
+        // We need to confirm if getAttestationByUser handles workshop_id. Yes, updated in model.
+        // But helper promisifyGetAttByUser(eventId, userId, type) calls getAttestationByUser(e, u, t, cb).
+        // It does NOT pass workshopId.
+        // I need to update promisifyGetAttByUser? 
+        // Yes, or simply call getAttestationByUser directly here inside wrapper if type is workshop?
+        // Let's rely on standard logic: if workshopId passed, use it.
+        // But `promisifyGetAttByUser` is defined above. I need to update it too. 
+        // I'll update calls here first.
+
+        let existingCheck = null;
+        if (type === 'workshop') {
+          existingCheck = await new Promise((resolve, reject) => {
+            getAttestationByUser(eventId, userId, type, (err, row) => resolve(row), workshopId);
+          });
+        } else {
+          existingCheck = await promisifyGetAttByUser(eventId, userId, type);
+        }
+
+        if (existingCheck && !force) {
           report.skippedCached += 1;
           continue;
         }
 
-        const ok = await isEligible(eventId, userId, type);
+        const ok = await isEligible(eventId, userId, type, workshopId);
         if (!ok) {
           report.skippedNotEligible += 1;
           continue;
@@ -154,16 +211,26 @@ async function generateBatchForEvent(req, res) {
         const { pdfPath, uniqueCode } = await AttestationService.generateAttestationPdf({
           eventId,
           userId,
-          type
+          type,
+          workshopId
         });
 
         await promisifyUpsertAttestation({
           evenementId: eventId,
           utilisateurId: userId,
           type,
+          workshopId,
           fichierPdf: pdfPath,
           uniqueCode
         });
+
+        // Send notification to participant
+        const notifMessage = type === 'workshop'
+          ? `Votre certificat de participation au workshop est prêt!`
+          : `Votre certificat de ${type} est prêt!`;
+
+        createNotification(userId, eventId, 'certificate_generated', notifMessage)
+          .catch(nErr => console.error("Notification certificate error:", nErr));
 
         report.createdOrUpdated += 1;
       } catch (e) {

@@ -1,12 +1,13 @@
 // controllers/attestation.controller.js
 const path = require('path');
 const fs = require('fs');
-const PDFDocument = require('pdfkit'); // (خليه إذا تحب، بصح ما بقيناش نحتاجوه هنا)
+const PDFDocument = require('pdfkit');
 const { validationResult } = require('express-validator');
+const db = require('../db');
 
 const {
   createAttestation,
-  upsertAttestation, 
+  upsertAttestation,
   getAttestationByUser,
   listAttestationsByEvent
 } = require('../models/attestation.model');
@@ -16,11 +17,9 @@ const { getUserById } = require('../models/user.model');
 const { getEventById } = require('../models/event.model');
 
 const {
-  isParticipantInscrit,
-  hasAcceptedCommunication,
-  isMembreComiteForEvent,
-  isOrganisateurForEvent,
   isEventFinished,
+  isWorkshopFinished,
+  isWorkshopParticipant
 } = require('../utils/attestationEligibility');
 
 const AttestationService = require("../services/attestation.service");
@@ -77,7 +76,7 @@ function getUserAndEventInfo(evenementId, utilisateurId, callback) {
 }
 
 // vérifier l’éligibilité selon type demandé
-function checkEligibility(evenementId, utilisateurId, type, callback) {
+function checkEligibility(evenementId, utilisateurId, type, callback, workshopId) {
   if (type === 'participant') {
     return isParticipantInscrit(evenementId, utilisateurId, (err, ok) => {
       if (err) return callback(err);
@@ -112,6 +111,23 @@ function checkEligibility(evenementId, utilisateurId, type, callback) {
     });
   }
 
+  if (type === 'invite') {
+    return isGuestSpeakerForEvent(evenementId, utilisateurId, (err, ok) => {
+      if (err) return callback(err);
+      if (!ok) return callback(null, { ok: false, reason: 'NOT_SPEAKER' });
+      return callback(null, { ok: true });
+    });
+  }
+
+  if (type === 'workshop') {
+    if (!workshopId) return callback(null, { ok: false, reason: 'WORKSHOP_ID_REQUIRED' });
+    return isWorkshopParticipant(workshopId, utilisateurId, (err, ok) => {
+      if (err) return callback(err);
+      if (!ok) return callback(null, { ok: false, reason: 'NOT_WORKSHOP_PARTICIPANT' });
+      return callback(null, { ok: true });
+    });
+  }
+
   return callback(null, { ok: false, reason: 'TYPE_INVALIDE' });
 }
 
@@ -128,7 +144,7 @@ function generateMyAttestation(req, res) {
   }
 
   const utilisateurId = req.user.id;
-  const { evenementId, type } = req.body;
+  const { evenementId, type, workshopId } = req.body;
 
   // 1) vérifier si attestation existe déjà
   getAttestationByUser(evenementId, utilisateurId, type, (err, existing) => {
@@ -143,18 +159,28 @@ function generateMyAttestation(req, res) {
       });
     }
 
-    // 2) vérifier que l'événement est terminé
-    isEventFinished(evenementId, (evErr, evResult) => {
-      if (evErr) {
-        return res.status(500).json({ message: 'Erreur vérification événement', error: evErr });
+    // Function helper to check finished status
+    const checkFinished = (cb) => {
+      if (type === 'workshop') {
+        if (!workshopId) return cb({ ok: false, reason: 'WORKSHOP_ID_REQUIRED' }); // Should be caught by validator?
+        isWorkshopFinished(workshopId, (err, res) => cb(err ? { error: err } : res));
+      } else {
+        isEventFinished(evenementId, (err, res) => cb(err ? { error: err } : res));
       }
-      if (!evResult.ok && evResult.reason === 'EVENT_NOT_FOUND') {
-        return res.status(404).json({ message: 'Événement introuvable' });
+    };
+
+    // 2) vérifier que l'événement/workshop est terminé
+    checkFinished((evResult) => {
+      if (evResult.error) {
+        return res.status(500).json({ message: 'Erreur vérification événement', error: evResult.error });
       }
-      if (!evResult.ok && evResult.reason === 'EVENT_NOT_FINISHED') {
+      if (!evResult.ok) {
+        if (evResult.reason === 'EVENT_NOT_FOUND' || evResult.reason === 'WORKSHOP_NOT_FOUND') {
+          return res.status(404).json({ message: 'Événement/Workshop introuvable' });
+        }
         return res.status(403).json({
-          message: 'Attestation non disponible avant la fin de l’événement',
-          reason: 'EVENT_NOT_FINISHED'
+          message: 'Attestation non disponible avant la fin',
+          reason: evResult.reason
         });
       }
 
@@ -174,13 +200,15 @@ function generateMyAttestation(req, res) {
         AttestationService.generateAttestationPdf({
           eventId: evenementId,
           userId: utilisateurId,
-          type
+          type,
+          workshopId
         })
           .then(({ pdfPath, uniqueCode }) => {
             const attData = {
               evenementId,
               utilisateurId,
               type,
+              workshopId,
               fichierPdf: pdfPath,
               uniqueCode // ⚠️ model لازم يدعمو (أو تجاهلو مؤقتاً)
             };
@@ -206,9 +234,9 @@ function generateMyAttestation(req, res) {
               error: pdfErr.message || pdfErr
             });
           });
-      });
+      }, workshopId);
     });
-  });
+  }, workshopId);
 }
 
 /**
@@ -222,10 +250,10 @@ function downloadMyAttestation(req, res) {
   }
 
   const utilisateurId = req.user.id;
-  const { evenementId, type } = req.query;
+  const { evenementId, type, workshopId } = req.query;
 
-  // 0) type validate سريع (باش ما ندخلوش للـ DB بلا لازمة)
-  const allowed = ['participant', 'communicant', 'membre_comite', 'organisateur'];
+  // 0) type validate سريع (باش ما ندخلوش  // 0) type validate rapide
+  const allowed = ['participant', 'communicant', 'membre_comite', 'organisateur', 'invite', 'workshop'];
   if (!allowed.includes(type)) {
     return res.status(400).json({ message: 'Type invalide', reason: 'TYPE_INVALIDE' });
   }
@@ -239,17 +267,24 @@ function downloadMyAttestation(req, res) {
     // 2) إذا ماكانتش attestation → نقدر نولدها ثم نحمّلها (Phase 3)
     if (!attestation) {
       // لازم نفس شروط Phase 2
-      isEventFinished(evenementId, (evErr, evResult) => {
-        if (evErr) {
-          return res.status(500).json({ message: 'Erreur vérification événement', error: evErr });
+      // Function helper to check finished status
+      const checkFinished = (cb) => {
+        if (type === 'workshop') {
+          if (!workshopId) return cb({ ok: false, reason: 'WORKSHOP_ID_REQUIRED' });
+          isWorkshopFinished(workshopId, (err, res) => cb(err ? { error: err } : res));
+        } else {
+          isEventFinished(evenementId, (err, res) => cb(err ? { error: err } : res));
         }
-        if (!evResult.ok && evResult.reason === 'EVENT_NOT_FOUND') {
-          return res.status(404).json({ message: 'Événement introuvable' });
+      };
+
+      checkFinished((evResult) => {
+        if (evResult.error) {
+          return res.status(500).json({ message: 'Erreur vérification événement', error: evResult.error });
         }
-        if (!evResult.ok && evResult.reason === 'EVENT_NOT_FINISHED') {
+        if (!evResult.ok) {
           return res.status(403).json({
-            message: 'Attestation non disponible avant la fin de l’événement',
-            reason: 'EVENT_NOT_FINISHED'
+            message: 'Attestation non disponible avant la fin',
+            reason: evResult.reason
           });
         }
 
@@ -267,13 +302,15 @@ function downloadMyAttestation(req, res) {
           AttestationService.generateAttestationPdf({
             eventId: evenementId,
             userId: utilisateurId,
-            type
+            type,
+            workshopId
           })
             .then(({ pdfPath, uniqueCode }) => {
               const attData = {
                 evenementId,
                 utilisateurId,
                 type,
+                workshopId,
                 fichierPdf: pdfPath,
                 uniqueCode
               };
@@ -299,7 +336,7 @@ function downloadMyAttestation(req, res) {
                 error: pdfErr.message || pdfErr
               });
             });
-        });
+        }, workshopId);
       });
 
       return;
@@ -313,7 +350,7 @@ function downloadMyAttestation(req, res) {
     }
 
     return res.download(filePath, `attestation_${type}.pdf`); // téléchargement [web:222]
-  });
+  }, req.query.workshopId); // Pass workshopId for getAttestationByUser
 }
 
 /**
@@ -431,9 +468,114 @@ function listEventAttestations(req, res) {
 
 
 
+// GET /api/attestations/me/list
+function listMyAttestations(req, res) {
+  const utilisateurId = req.user.id;
+
+  // Custom query to join with event title
+  const sql = `
+    SELECT a.*, e.titre as event_title
+    FROM attestation a
+    JOIN evenement e ON a.evenement_id = e.id
+    WHERE a.utilisateur_id = ?
+    ORDER BY a.date_generation DESC
+  `;
+
+  db.query(sql, [utilisateurId], (err, rows) => {
+    if (err) {
+      console.error('Error listing user attestations:', err);
+      return res.status(500).json({ message: 'Erreur serveur', error: err });
+    }
+    return res.status(200).json(rows);
+  });
+}
+
+// GET /api/attestations/me/eligibility
+function listMyEligibility(req, res) {
+  const utilisateurId = req.user.id;
+
+  // This query finds events where user is eligible but no attestation exists.
+  // We check for: Participant, Communicant, Invite (Speaker), Membre Comite, Organisateur.
+  // We only include events that have 'ended' (using a simplified NOW() check, 
+  // though the generation itself will use the more robust isEventFinished logic).
+  const sql = `
+    SELECT evenement_id, event_title, type FROM (
+      -- 1. Participants
+      SELECT 
+        e.id as evenement_id, e.titre as event_title, 'participant' as type
+      FROM evenement e
+      JOIN inscription i ON i.evenement_id = e.id
+      WHERE i.participant_id = ? AND (e.date_fin IS NOT NULL AND e.date_fin <= NOW())
+      AND NOT EXISTS (SELECT 1 FROM attestation a WHERE a.evenement_id = e.id AND a.utilisateur_id = ? AND a.type = 'participant')
+
+      UNION ALL
+
+      -- 2. Communicants (Authors)
+      SELECT 
+        e.id as evenement_id, e.titre as event_title, 'communicant' as type
+      FROM evenement e
+      JOIN communication c ON c.evenement_id = e.id
+      WHERE (c.auteur_id = ?) AND c.etat = 'acceptee' AND (e.date_fin IS NOT NULL AND e.date_fin <= NOW())
+      AND NOT EXISTS (SELECT 1 FROM attestation a WHERE a.evenement_id = e.id AND a.utilisateur_id = ? AND a.type = 'communicant')
+
+      UNION ALL
+
+      -- 3. Invited Speakers (Chairs/Authors in sessions)
+      SELECT 
+        e.id as evenement_id, e.titre as event_title, 'invite' as type
+      FROM evenement e
+      JOIN session s ON s.evenement_id = e.id
+      LEFT JOIN communication c ON c.session_id = s.id
+      WHERE (s.president_id = ? OR c.auteur_id = ?) AND (e.date_fin IS NOT NULL AND e.date_fin <= NOW())
+      AND NOT EXISTS (SELECT 1 FROM attestation a WHERE a.evenement_id = e.id AND a.utilisateur_id = ? AND a.type = 'invite')
+
+      UNION ALL
+
+      -- 4. Committee Members
+      SELECT 
+        e.id as evenement_id, e.titre as event_title, 'membre_comite' as type
+      FROM evenement e
+      JOIN comite_scientifique cs ON cs.evenement_id = e.id
+      JOIN membre_comite mc ON mc.comite_id = cs.id
+      WHERE mc.utilisateur_id = ? AND (e.date_fin IS NOT NULL AND e.date_fin <= NOW())
+      AND NOT EXISTS (SELECT 1 FROM attestation a WHERE a.evenement_id = e.id AND a.utilisateur_id = ? AND a.type = 'membre_comite')
+
+      UNION ALL
+
+      -- 5. Organizers
+      SELECT 
+        e.id as evenement_id, e.titre as event_title, 'organisateur' as type
+      FROM evenement e
+      WHERE e.id_organisateur = ? AND (e.date_fin IS NOT NULL AND e.date_fin <= NOW())
+      AND NOT EXISTS (SELECT 1 FROM attestation a WHERE a.evenement_id = e.id AND a.utilisateur_id = ? AND a.type = 'organisateur')
+    ) as eligibility
+    ORDER BY evenement_id DESC
+  `;
+
+  // Note: For now, I'm excluding presentateur_id check in SQL to avoid potential column errors 
+  // if not yet migrated, sticking to auteur_id which is guaranteed.
+  const params = [
+    utilisateurId, utilisateurId, // participant
+    utilisateurId, utilisateurId, // communicant
+    utilisateurId, utilisateurId, utilisateurId, // invite
+    utilisateurId, utilisateurId, // membre_comite
+    utilisateurId, utilisateurId  // organisateur
+  ];
+
+  db.query(sql, params, (err, rows) => {
+    if (err) {
+      console.error('Error listing user eligibility:', err);
+      return res.status(500).json({ message: 'Erreur serveur', error: err });
+    }
+    return res.status(200).json(rows);
+  });
+}
+
 module.exports = {
   generateMyAttestation,
   downloadMyAttestation,
   generateAttestationForUser,
-  listEventAttestations
+  listEventAttestations,
+  listMyAttestations,
+  listMyEligibility
 };

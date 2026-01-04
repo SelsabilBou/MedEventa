@@ -37,9 +37,8 @@ const EventProgramSection = ({
               <button
                 key={day}
                 type="button"
-                className={`ed-day-tab ${
-                  idx === activeDayIndex ? "active" : ""
-                }`}
+                className={`ed-day-tab ${idx === activeDayIndex ? "active" : ""
+                  }`}
                 onClick={() => setActiveDayIndex(idx)}
               >
                 {day}
@@ -54,33 +53,29 @@ const EventProgramSection = ({
             <FaFilter /> Filter:
           </span>
           <button
-            className={`ed-filter-btn ${
-              programFilter === "all" ? "active" : ""
-            }`}
+            className={`ed-filter-btn ${programFilter === "all" ? "active" : ""
+              }`}
             onClick={() => setProgramFilter("all")}
           >
             All
           </button>
           <button
-            className={`ed-filter-btn ${
-              programFilter === "conferences" ? "active" : ""
-            }`}
+            className={`ed-filter-btn ${programFilter === "conferences" ? "active" : ""
+              }`}
             onClick={() => setProgramFilter("conferences")}
           >
             Conferences
           </button>
           <button
-            className={`ed-filter-btn ${
-              programFilter === "workshops" ? "active" : ""
-            }`}
+            className={`ed-filter-btn ${programFilter === "workshops" ? "active" : ""
+              }`}
             onClick={() => setProgramFilter("workshops")}
           >
             Workshops
           </button>
           <button
-            className={`ed-filter-btn ${
-              programFilter === "sessions" ? "active" : ""
-            }`}
+            className={`ed-filter-btn ${programFilter === "sessions" ? "active" : ""
+              }`}
             onClick={() => setProgramFilter("sessions")}
           >
             Sessions
@@ -102,7 +97,7 @@ const EventProgramSection = ({
             </div>
             {filteredConferences.length > 0 ? (
               filteredConferences.map((c) => (
-                <div key={c.id} className="ed-detailed-session">
+                <div key={`conference-${c.id}`} className="ed-detailed-session">
                   <div className="ed-session-time-badge">{c.time}</div>
                   <div className="ed-session-content">
                     <h4>{c.title}</h4>
@@ -141,7 +136,7 @@ const EventProgramSection = ({
             {filteredWorkshops.length > 0 ? (
               filteredWorkshops.map((w) => (
                 <div
-                  key={w.id}
+                  key={`workshop-${w.id}`}
                   className="ed-detailed-session with-registration"
                 >
                   <div className="ed-session-time-badge">{w.time}</div>
@@ -170,13 +165,12 @@ const EventProgramSection = ({
                     <div className="ed-session-actions">
                       <button
                         type="button"
-                        className={`ed-register-btn ${
-                          w.registeredCount >= w.capacity ? "disabled" : ""
-                        }`}
+                        className={`ed-register-btn ${w.registeredCount >= w.capacity ? "disabled" : ""
+                          }`}
                         onClick={() => handleWorkshopRegister(w)}
                         disabled={
                           w.registeredCount >= w.capacity ||
-                          currentUser?.role !== "participant"
+                          currentUser?.role?.toUpperCase() !== "PARTICIPANT"
                         }
                       >
                         <FaPen /> Register for Workshop
@@ -210,7 +204,7 @@ const EventProgramSection = ({
             {filteredSessions.length > 0 ? (
               filteredSessions.map((s) => (
                 <div
-                  key={s.id}
+                  key={`session-${s.id}`}
                   className="ed-detailed-session with-registration"
                 >
                   <div className="ed-session-time-badge">{s.time}</div>
@@ -242,13 +236,12 @@ const EventProgramSection = ({
                     <div className="ed-session-actions">
                       <button
                         type="button"
-                        className={`ed-register-btn ${
-                          s.registeredCount >= s.capacity ? "disabled" : ""
-                        }`}
+                        className={`ed-register-btn ${s.registeredCount >= s.capacity ? "disabled" : ""
+                          }`}
                         onClick={() => handleSessionRegister(s)}
                         disabled={
                           s.registeredCount >= s.capacity ||
-                          currentUser?.role !== "participant"
+                          currentUser?.role?.toUpperCase() !== "PARTICIPANT"
                         }
                       >
                         <FaBook /> Register for Session

@@ -9,16 +9,29 @@ const ForgotPasswordPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      console.log(`Password reset link sent to ${email}`);
-      setIsSubmitted(true);
+    try {
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (response.ok) {
+        setIsSubmitted(true);
+      } else {
+        const data = await response.json();
+        alert(data.message || "Something went wrong.");
+      }
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      alert("Failed to send reset code. Please try again later.");
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleReset = () => {
@@ -27,7 +40,7 @@ const ForgotPasswordPage = () => {
   };
 
   const goBackToLogin = () => navigate("/login");
-  const goToResetPage = () => navigate("/reset");
+  const goToResetPage = () => navigate("/reset", { state: { email } });
 
   return (
     <div className="forgot-password-page">
@@ -74,8 +87,8 @@ const ForgotPasswordPage = () => {
             </h2>
             <p className="forgot-subtitle">
               {isSubmitted
-                ? "Check your inbox for the reset link."
-                : "Please enter your registered email address to receive credentials."}
+                ? "Check your inbox for the verification code."
+                : "Please enter your registered email address to receive your reset code."}
             </p>
           </div>
 
@@ -86,8 +99,8 @@ const ForgotPasswordPage = () => {
                 <div className="success-content">
                   <FaCheck className="success-icon" />
                   <p className="success-text">
-                    An email was sent to <strong>{email}</strong>. The link will
-                    expire in 15 minutes.
+                    A verification code was sent to <strong>{email}</strong>. It will
+                    expire in 5 minutes.
                   </p>
                 </div>
               </div>
@@ -102,7 +115,7 @@ const ForgotPasswordPage = () => {
                 <div className="tip-item right-tip-item">
                   <div className="tip-bullet small-bullet" />
                   <span className="tip-text">
-                    The reset link is valid for 15 minutes.
+                    The reset code is valid for 5 minutes.
                   </span>
                 </div>
               </div>
@@ -119,7 +132,7 @@ const ForgotPasswordPage = () => {
                   className="secondary-button"
                   onClick={goToResetPage}
                 >
-                  Go to new password page
+                  Proceed to reset password
                 </button>
               </div>
             </div>
@@ -141,7 +154,7 @@ const ForgotPasswordPage = () => {
                   />
                 </div>
                 <p className="input-hint">
-                  You will receive a secure link to reset your password.
+                  You will receive a 6-digit code to reset your password.
                 </p>
               </div>
 
@@ -156,7 +169,7 @@ const ForgotPasswordPage = () => {
                     <span>Sending...</span>
                   </div>
                 ) : (
-                  "Send reset link"
+                  "Send reset code"
                 )}
               </button>
 

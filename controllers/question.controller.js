@@ -1,7 +1,7 @@
 // controllers/question.controller.js
 const { validationResult } = require('express-validator');
 const db = require('../db');
-const { createQuestion ,voteQuestion } = require('../models/question.model');
+const { createQuestion, voteQuestion } = require('../models/question.model');
 
 // POST /events/:eventId/questions/submit
 const submitQuestionController = (req, res) => {
@@ -117,11 +117,13 @@ const getQuestionsByEventController = (req, res) => {
     }
 
     return res.status(200).json({
-      eventId,
       questions: questions.map((q) => ({
         id: q.id,
-        content: q.content,
+        contenu: q.content, // Frontend expects 'contenu'
+        content: q.content, // Keep 'content' just in case
         likes: q.likes,
+        created_at: q.date_creation, // Frontend expects 'created_at'
+        user_name: q.userName, // Frontend expects 'user_name'
         user: {
           id: q.userId,
           name: q.userName,
@@ -131,5 +133,5 @@ const getQuestionsByEventController = (req, res) => {
   });
 };
 module.exports = {
-  submitQuestionController,voteQuestionController,getQuestionsByEventController,
+  submitQuestionController, voteQuestionController, getQuestionsByEventController,
 };

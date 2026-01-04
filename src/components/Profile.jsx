@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import "./Profile.css";
 import {
   FaFileAlt,
@@ -22,17 +23,41 @@ import html2pdf from "html2pdf.js";
 const Profile = () => {
   const navigate = useNavigate();
 
-  // read once from localStorage when the component is created
-  const initialUser = (() => {
-    try {
-      const saved = localStorage.getItem("user");
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  })();
+  const [user, setUser] = useState(null);
 
-  const [user] = useState(initialUser);
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      try {
+        const res = await axios.get("/api/auth/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data.user) {
+          const u = res.data.user;
+          // Harmonize fields
+          u.name = `${u.prenom || ""} ${u.nom || ""}`.trim();
+          u.domain = u.domaine_recherche;
+          setUser(u);
+          // Keep localStorage sync for other legacy components
+          localStorage.setItem("user", JSON.stringify(u));
+        }
+      } catch (err) {
+        console.error("Failed to fetch profile", err);
+        // Fallback
+        const saved = localStorage.getItem("user");
+        if (saved) {
+          const u = JSON.parse(saved);
+          if (!u.name && (u.nom || u.prenom)) {
+            u.name = `${u.prenom || ""} ${u.nom || ""}`.trim();
+          }
+          setUser(u);
+        }
+      }
+    };
+    fetchProfile();
+  }, []);
 
   const handleDownloadBadgePdf = () => {
     const badge = document.getElementById("profile-badge");

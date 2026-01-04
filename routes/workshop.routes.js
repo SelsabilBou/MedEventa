@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { verifyToken, requirePermission } = require('../middlewares/auth.middleware');
+const { verifyToken, requirePermission } = require('../middlewares/auth.middlewares');
 
 const workshopController = require('../controllers/workshop.controller');
 const workshopRegistrationController = require('../controllers/workshopRegistration.controller');
@@ -13,27 +13,45 @@ const {
 } = require('../validators/workshop.validators');
 
 const multer = require('multer');
-const { uploadWorkshopPdf } = require('../middlewares/uploadWorkshopPdf');
+const { uploadWorkshopSupport } = require('../middlewares/uploadWorkshopSupport');
 const workshopSupportController = require('../controllers/workshopSupport.controller');
 
 // =======================
 // Phase 4: CONSULTATION
 // =======================
 
+// GET /api/events/my-workshops
+router.get(
+  '/my-workshops',
+  verifyToken,
+  // requirePermission('view_workshops'), // or create specific permission or allow all valid users if role check inside controller?
+  // Controller checks if user is authenticated. Let's rely on that or add basic permission if needed.
+  // For 'RESP_WORKSHOP', they should have access.
+  workshopController.listMyWorkshops
+);
+
 // GET /api/events/:eventId/workshops
+// Public endpoint - all authenticated users can view workshops
 router.get(
   '/:eventId/workshops',
   verifyToken,
-  requirePermission('view_workshops'),
   workshopController.listWorkshops
 );
 
 // GET /api/events/workshops/:workshopId
+// Public endpoint - all authenticated users can view workshop details
 router.get(
   '/workshops/:workshopId',
   verifyToken,
-  requirePermission('view_workshops'),
   workshopController.getWorkshopController
+);
+
+// GET /api/events/workshops/:workshopId/stats
+router.get(
+  '/workshops/:workshopId/stats',
+  verifyToken,
+  requirePermission('view_workshops'),
+  workshopController.getWorkshopStats
 );
 
 // =======================
@@ -94,15 +112,41 @@ router.get(
   workshopRegistrationController.listRegistrationsController
 );
 
+// DELETE /api/events/workshops/:workshopId/participants/:participantId
+router.delete(
+  '/workshops/:workshopId/participants/:participantId',
+  verifyToken,
+  requirePermission('manage_workshop_inscriptions'),
+  workshopRegistrationController.removeParticipant
+);
+
+// PUT /api/events/workshops/registrations/:inscriptionId/presence
+router.put(
+  '/workshops/registrations/:inscriptionId/presence',
+  verifyToken,
+  requirePermission('manage_workshop_inscriptions'),
+  workshopRegistrationController.updatePresenceController
+);
+
+// PUT /api/events/workshops/registrations/:inscriptionId/confirmation
+router.put(
+  '/workshops/registrations/:inscriptionId/confirmation',
+  verifyToken,
+  requirePermission('manage_workshop_inscriptions'),
+  workshopRegistrationController.updateConfirmationController
+);
+
+
+
 // =======================
 // Phase 3/4: SUPPORTS
 // =======================
 
 // GET /api/events/workshops/:workshopId/supports
+// Public endpoint - all authenticated users can view workshop supports
 router.get(
   '/workshops/:workshopId/supports',
   verifyToken,
-  requirePermission('view_workshops'),
   workshopSupportController.listSupportsController
 );
 
@@ -111,7 +155,7 @@ router.post(
   '/workshops/:workshopId/supports',
   verifyToken,
   requirePermission('manage_workshop_supports'),
-  uploadWorkshopPdf.single('pdf'),
+  uploadWorkshopSupport.single('file'),
   workshopSupportController.addSupportController
 );
 
@@ -127,7 +171,7 @@ router.delete(
 router.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ message: 'Fichier trop grand (max 10MB)' });
+      return res.status(400).json({ message: 'Fichier trop grand (max 20MB)' });
     }
     return res.status(400).json({ message: 'Erreur upload', detail: err.message });
   }

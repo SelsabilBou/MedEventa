@@ -4,8 +4,15 @@ const router = express.Router();
 
 const { verifyToken } = require('../middlewares/auth.middlewares');
 const { requirePermission } = require('../middlewares/permissions');
-const {createSurveyValidation,submitResponseValidation,} = require('../validators/survey.validators');
-const {createSurveyController,submitResponseController,getSurveyResultsController} = require('../controllers/survey.controller');
+const { createSurveyValidation, submitResponseValidation, } = require('../validators/survey.validators');
+const { createSurveyController, submitResponseController, getSurveyResultsController, getSurveysByEventController } = require('../controllers/survey.controller');
+
+// GET /api/events/:eventId/surveys - List all surveys for an event
+router.get(
+  '/events/:eventId/surveys',
+  verifyToken,
+  getSurveysByEventController
+);
 
 // POST /api/events/:eventId/surveys/create
 router.post(

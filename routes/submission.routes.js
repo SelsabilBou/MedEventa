@@ -2,10 +2,19 @@
 const express = require('express');
 const router = express.Router();
 
-const { verifyToken } = require('../middlewares/auth.middleware');
+const { verifyToken } = require('../middlewares/auth.middlewares');
 const { uploadSubmissionPdf } = require('../middlewares/uploadPdf');
 const submissionController = require('../controllers/submission.controller');
 const { requirePermission } = require('../middlewares/permissions');
+
+// GET /api/events/:eventId/submissions
+router.get(
+  '/:eventId/submissions',
+  verifyToken,
+  requirePermission('view_submissions'),
+  submissionController.getSubmissionsForEventController
+);
+
 // POST /api/events/:eventId/submissions
 router.post(
   '/:eventId/submissions',

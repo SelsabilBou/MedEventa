@@ -10,7 +10,11 @@ const EventGuestsSection = ({ guests }) => {
           <div key={guest.id} className="ed-guest-card">
             <div className="ed-guest-header">
               <div className="ed-guest-avatar">
-                <FaStar />
+                {guest.photo ? (
+                  <img src={guest.photo} alt={guest.name} className="ed-guest-img" />
+                ) : (
+                  <FaStar />
+                )}
               </div>
               <div className="ed-guest-title">
                 <h4>{guest.name}</h4>

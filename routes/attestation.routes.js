@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { verifyToken } = require('../middlewares/auth.middleware');
+const { verifyToken } = require('../middlewares/auth.middlewares');
 const { requirePermission } = require('../middlewares/permissions');
 
 const {
@@ -20,7 +20,9 @@ const {
   generateMyAttestation,
   downloadMyAttestation,
   generateAttestationForUser,
-  listEventAttestations
+  listEventAttestations,
+  listMyAttestations,
+  listMyEligibility
 } = require('../controllers/attestation.controller');
 
 // ✅ Phase 5 controllers (جدد)
@@ -35,6 +37,18 @@ router.post(
   verifyToken,
   validateGenerateMyAttestation,
   generateMyAttestation
+);
+
+router.get(
+  '/me/list',
+  verifyToken,
+  listMyAttestations
+);
+
+router.get(
+  '/me/eligibility',
+  verifyToken,
+  listMyEligibility
 );
 
 router.get(

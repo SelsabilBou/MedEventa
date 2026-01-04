@@ -3,23 +3,34 @@ const db = require('../db');
 
 const createEvent = (data, callback) => {
   const { titre, description, date_debut, date_fin, lieu, thematique, contact, id_organisateur } = data;
-  const sql = `
+  const sqlEvent = `
     INSERT INTO evenement (titre, description, date_debut, date_fin, lieu, thematique, contact, id_organisateur)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `;
   db.query(
-    sql,
+    sqlEvent,
     [titre, description, date_debut, date_fin, lieu, thematique, contact, id_organisateur],
     (err, result) => {
       if (err) return callback(err, null);
-      callback(null, result.insertId);
+      const eventId = result.insertId;
+
+      // Automatically create a scientific committee for this event
+      const sqlComite = 'INSERT INTO comite_scientifique (evenement_id, nom) VALUES (?, ?)';
+      db.query(sqlComite, [eventId, `Comité de ${titre}`], (err2) => {
+        if (err2) {
+          console.error('Error creating comite_scientifique:', err2);
+          // We still return the eventId even if committee creation fails, 
+          // but log the error.
+        }
+        callback(null, eventId);
+      });
     }
   );
 };
 
 const addComiteMember = (comiteId, userId, callback) => {
   const sql = `
-    INSERT INTO membre_comite (utilisateur_id, comite_id)
+    INSERT IGNORE INTO membre_comite (utilisateur_id, comite_id)
     VALUES (?, ?)
   `;
   db.query(sql, [userId, comiteId], (err, result) => {
@@ -28,15 +39,47 @@ const addComiteMember = (comiteId, userId, callback) => {
   });
 };
 
+const clearComiteMembers = (comiteId, callback) => {
+  const sql = 'DELETE FROM membre_comite WHERE comite_id = ?';
+  db.query(sql, [comiteId], (err, result) => {
+    if (err) return callback(err);
+    callback(null, result);
+  });
+};
+
 const addInvite = (eventId, inviteData, callback) => {
-  const { nom, prenom, email, sujet_conference } = inviteData;
+  const { nom, prenom, email, sujet_conference, utilisateur_id } = inviteData;
   const sql = `
-    INSERT INTO invite (nom, prenom, email, evenement_id, sujet_conference)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO invite (nom, prenom, email, evenement_id, sujet_conference, utilisateur_id)
+    VALUES (?, ?, ?, ?, ?, ?)
   `;
-  db.query(sql, [nom, prenom, email, eventId, sujet_conference], (err, result) => {
+  db.query(sql, [nom, prenom, email, eventId, sujet_conference, utilisateur_id || null], (err, result) => {
     if (err) return callback(err);
     callback(null, result.insertId);
+  });
+};
+
+const clearInvites = (eventId, callback) => {
+  const sql = 'DELETE FROM invite WHERE evenement_id = ?';
+  db.query(sql, [eventId], (err, result) => {
+    if (err) return callback(err);
+    callback(null, result);
+  });
+};
+
+const addAnimateur = (eventId, userId, callback) => {
+  const sql = 'INSERT IGNORE INTO animateur_evenement (evenement_id, utilisateur_id) VALUES (?, ?)';
+  db.query(sql, [eventId, userId], (err, result) => {
+    if (err) return callback(err);
+    callback(null, result.insertId);
+  });
+};
+
+const clearAnimateurs = (eventId, callback) => {
+  const sql = 'DELETE FROM animateur_evenement WHERE evenement_id = ?';
+  db.query(sql, [eventId], (err, result) => {
+    if (err) return callback(err);
+    callback(null, result);
   });
 };
 
@@ -75,16 +118,20 @@ const getEventDetails = (eventId, callback) => {
       if (err2) return callback(err2);
 
       const sqlInvites = `
-        SELECT id, nom, prenom, email, sujet_conference
-        FROM invite
-        WHERE evenement_id = ?
+        SELECT i.id, i.nom, i.prenom, i.email, i.sujet_conference, i.utilisateur_id, u.photo, u.institution
+        FROM invite i
+        LEFT JOIN utilisateur u ON i.utilisateur_id = u.id
+        WHERE i.evenement_id = ?
       `;
 
       db.query(sqlInvites, [eventId], (err3, invitesResult) => {
-        if (err3) return callback(err3);
+        if (err3) {
+          console.warn('Warning: Could not fetch invites.', err3.message);
+          invitesResult = [];
+        }
 
         const sqlComite = `
-          SELECT u.id, u.nom, u.prenom, u.email
+          SELECT DISTINCT u.id, u.nom, u.prenom, u.email, u.institution, u.domaine_recherche, u.photo
           FROM membre_comite mc
           JOIN comite_scientifique cs ON mc.comite_id = cs.id
           JOIN utilisateur u ON u.id = mc.utilisateur_id
@@ -94,11 +141,26 @@ const getEventDetails = (eventId, callback) => {
         db.query(sqlComite, [eventId], (err4, comiteResult) => {
           if (err4) return callback(err4);
 
-          callback(null, {
-            event,
-            sessions: sessionsResult,
-            invites: invitesResult,
-            comite: comiteResult,
+          const sqlAnimateurs = `
+            SELECT u.id, u.nom, u.prenom, u.email, u.institution, u.photo
+            FROM animateur_evenement ae
+            JOIN utilisateur u ON u.id = ae.utilisateur_id
+            WHERE ae.evenement_id = ?
+          `;
+
+          db.query(sqlAnimateurs, [eventId], (err5, animateursResult) => {
+            if (err5) {
+              console.warn('Warning: Could not fetch animateurs.', err5.message);
+              animateursResult = [];
+            }
+
+            callback(null, {
+              event,
+              sessions: sessionsResult,
+              invites: invitesResult,
+              comite: comiteResult,
+              animateurs: animateursResult
+            });
           });
         });
       });
@@ -167,13 +229,35 @@ const getEventById = (eventId, callback) => {
   });
 };
 
+const getComiteByEvent = (eventId, callback) => {
+  const sql = 'SELECT id FROM comite_scientifique WHERE evenement_id = ? LIMIT 1';
+  db.query(sql, [eventId], (err, rows) => {
+    if (err) return callback(err);
+    callback(null, rows[0] || null);
+  });
+};
+
+const createComiteByEvent = (eventId, eventTitle, callback) => {
+  const sql = 'INSERT INTO comite_scientifique (evenement_id, nom) VALUES (?, ?)';
+  db.query(sql, [eventId, `Comité de ${eventTitle || 'Event'}`], (err, result) => {
+    if (err) return callback(err);
+    callback(null, result.insertId);
+  });
+};
+
 module.exports = {
   createEvent,
   addComiteMember,
   addInvite,
+  clearInvites,
+  addAnimateur,
+  clearAnimateurs,
   getEvents,
   getEventDetails,
   isSubmissionOpen,
   checkWorkshopDateInEvent,
-  getEventById, // 👈 important
-}
+  getEventById,
+  getComiteByEvent,
+  createComiteByEvent,
+  clearComiteMembers
+};

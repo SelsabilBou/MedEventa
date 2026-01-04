@@ -27,15 +27,20 @@ const userExists = (userId, callback) => {
 // ===== CRUD =====
 const createWorkshop = (data, callback) => {
   const sql = `
-    INSERT INTO workshop (evenement_id, titre, responsable_id, date, nb_places)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO workshop (evenement_id, titre, description, responsable_id, date, salle, level, price, nb_places, ouvert)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   const params = [
     data.evenement_id,
     data.titre,
+    data.description || null,
     data.responsable_id,
     data.date,
+    data.salle,
+    data.level || 'beginner',
+    data.price || 0,
     data.nb_places,
+    data.ouvert ?? true,
   ];
 
   db.query(sql, params, (err, result) => {
@@ -58,6 +63,40 @@ const getWorkshopsByEvent = (eventId, callback) => {
   });
 };
 
+
+const getWorkshopsByResponsible = (responsibleId, callback) => {
+  const sql = `
+    SELECT w.*, e.titre AS event_titre,
+           (SELECT COUNT(*) FROM inscription_workshop WHERE workshop_id = w.id) AS registered_count,
+           (SELECT COUNT(*) FROM inscription_workshop_attente WHERE workshop_id = w.id) AS waitlist_count
+    FROM workshop w
+    JOIN evenement e ON e.id = w.evenement_id
+    WHERE w.responsable_id = ?
+    ORDER BY w.date ASC
+  `;
+  db.query(sql, [responsibleId], (err, rows) => {
+    if (err) return callback(err);
+    return callback(null, rows);
+  });
+};
+
+const getAllWorkshopsWithStats = (callback) => {
+  const sql = `
+    SELECT w.*, e.titre AS event_titre,
+           u.nom AS responsable_nom, u.prenom AS responsable_prenom,
+           (SELECT COUNT(*) FROM inscription_workshop WHERE workshop_id = w.id) AS registered_count,
+           (SELECT COUNT(*) FROM inscription_workshop_attente WHERE workshop_id = w.id) AS waitlist_count
+    FROM workshop w
+    JOIN evenement e ON e.id = w.evenement_id
+    LEFT JOIN utilisateur u ON u.id = w.responsable_id
+    ORDER BY w.date ASC
+  `;
+  db.query(sql, [], (err, rows) => {
+    if (err) return callback(err);
+    return callback(null, rows);
+  });
+};
+
 const getWorkshopById = (workshopId, callback) => {
   const sql = `
     SELECT w.*, u.nom AS responsable_nom, u.prenom AS responsable_prenom
@@ -75,14 +114,19 @@ const getWorkshopById = (workshopId, callback) => {
 const updateWorkshop = (workshopId, data, callback) => {
   const sql = `
     UPDATE workshop
-    SET titre = ?, responsable_id = ?, date = ?, nb_places = ?
+    SET titre = ?, description = ?, responsable_id = ?, date = ?, salle = ?, level = ?, price = ?, nb_places = ?, ouvert = ?
     WHERE id = ?
   `;
   const params = [
     data.titre,
+    data.description || null,
     data.responsable_id,
     data.date,
+    data.salle,
+    data.level || 'beginner',
+    data.price || 0,
     data.nb_places,
+    data.ouvert,
     workshopId,
   ];
 
@@ -99,12 +143,23 @@ const deleteWorkshop = (workshopId, callback) => {
   });
 };
 
+const updateWorkshopLeader = (workshopId, leaderId, callback) => {
+  const sql = 'UPDATE workshop SET responsable_id = ? WHERE id = ?';
+  db.query(sql, [leaderId, workshopId], (err, result) => {
+    if (err) return callback(err);
+    callback(null, result.affectedRows);
+  });
+};
+
 module.exports = {
   eventExists,
   userExists,
   createWorkshop,
   getWorkshopsByEvent,
+  getWorkshopsByResponsible,
+  getAllWorkshopsWithStats, // NEW
   getWorkshopById,
   updateWorkshop,
   deleteWorkshop,
+  updateWorkshopLeader,
 };

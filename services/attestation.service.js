@@ -9,7 +9,7 @@ const PDFDocument = require("pdfkit");
 const db = require("../db"); // mysql pool (callbacks)
 
 const BASE_DIR = path.join(process.cwd(), "uploads", "attestations");
-const ALLOWED_TYPES = ["participant", "communicant", "membre_comite", "organisateur"];
+const ALLOWED_TYPES = ["participant", "communicant", "membre_comite", "organisateur", "workshop"];
 
 // ✅ wrapper باش نخدمو بـ async/await فوق mysql callback
 function queryAsync(sql, params = []) {
@@ -36,7 +36,7 @@ class AttestationService {
     return path.join(BASE_DIR, String(eventId), String(type), `${uniqueCode}.pdf`);
   }
 
-  static async fetchData({ eventId, userId }) {
+  static async fetchData({ eventId, userId, workshopId }) {
     const eventRows = await queryAsync(
       "SELECT id, titre, date_debut, date_fin, lieu FROM evenement WHERE id = ?",
       [eventId]
@@ -49,10 +49,19 @@ class AttestationService {
     );
     if (!userRows.length) throw new Error("Utilisateur introuvable");
 
-    return { event: eventRows[0], user: userRows[0] };
+    let workshop = null;
+    if (workshopId) {
+      const workshopRows = await queryAsync(
+        "SELECT id, titre, date, lieu, type FROM workshop WHERE id = ?",
+        [workshopId]
+      );
+      if (workshopRows.length) workshop = workshopRows[0];
+    }
+
+    return { event: eventRows[0], user: userRows[0], workshop };
   }
 
-  static async writePdf({ event, user, type, uniqueCode, pdfPath }) {
+  static async writePdf({ event, user, type, uniqueCode, pdfPath, workshop }) {
     await this.ensureDir(event.id, type);
 
     return new Promise((resolve, reject) => {
@@ -63,7 +72,12 @@ class AttestationService {
 
       doc.fontSize(22).text("ATTESTATION", { align: "center" });
       doc.moveDown(0.5);
-      doc.fontSize(12).text(`Type: ${type}`, { align: "center" });
+
+      let typeLabel = `Type: ${type}`;
+      if (type === 'workshop' && workshop) {
+        typeLabel = `Workshop`;
+      }
+      doc.fontSize(12).text(typeLabel, { align: "center" });
       doc.moveDown();
 
       doc.fontSize(11).text(`Certifie que: ${user.prenom} ${user.nom}`);
@@ -71,10 +85,18 @@ class AttestationService {
       if (user.institution) doc.text(`Institution: ${user.institution}`);
       doc.moveDown();
 
-      doc.text(`Événement: ${event.titre}`);
-      if (event.lieu) doc.text(`Lieu: ${event.lieu}`);
-      if (event.date_debut) doc.text(`Date début: ${new Date(event.date_debut).toLocaleDateString("fr-FR")}`);
-      if (event.date_fin) doc.text(`Date fin: ${new Date(event.date_fin).toLocaleDateString("fr-FR")}`);
+      if (type === 'workshop' && workshop) {
+        doc.text(`A participé au workshop: ${workshop.titre}`);
+        if (workshop.lieu) doc.text(`Lieu: ${workshop.lieu}`);
+        if (workshop.date) doc.text(`Date: ${new Date(workshop.date).toLocaleDateString("fr-FR")} ${new Date(workshop.date).toLocaleTimeString("fr-FR")}`);
+        doc.moveDown();
+        doc.text(`Dans le cadre de l'événement: ${event.titre}`);
+      } else {
+        doc.text(`Événement: ${event.titre}`);
+        if (event.lieu) doc.text(`Lieu: ${event.lieu}`);
+        if (event.date_debut) doc.text(`Date début: ${new Date(event.date_debut).toLocaleDateString("fr-FR")}`);
+        if (event.date_fin) doc.text(`Date fin: ${new Date(event.date_fin).toLocaleDateString("fr-FR")}`);
+      }
 
       doc.moveDown(2);
       doc.fontSize(9).text(`Code de vérification: ${uniqueCode}`, { align: "center" });
@@ -88,15 +110,15 @@ class AttestationService {
   }
 
   // ✅ Phase 3: générer PDF seulement
-  static async generateAttestationPdf({ eventId, userId, type }) {
+  static async generateAttestationPdf({ eventId, userId, type, workshopId }) {
     if (!ALLOWED_TYPES.includes(type)) throw new Error("type invalide");
 
-    const { event, user } = await this.fetchData({ eventId, userId });
+    const { event, user, workshop } = await this.fetchData({ eventId, userId, workshopId });
 
     const uniqueCode = this.generateUniqueCode();
     const pdfPath = this.buildPdfPath(eventId, type, uniqueCode);
 
-    await this.writePdf({ event, user, type, uniqueCode, pdfPath });
+    await this.writePdf({ event, user, type, uniqueCode, pdfPath, workshop });
 
     return { pdfPath, uniqueCode };
   }

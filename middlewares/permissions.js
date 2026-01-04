@@ -2,6 +2,7 @@
 const permissions = {
   SUPER_ADMIN: [
     'create_event', 'delete_user', 'view_all', 'manage_evaluations',
+<<<<<<< HEAD:middlewares/permissions.js
     'decide_submission',
     'view_submissions',
     'create_workshop',
@@ -15,10 +16,18 @@ const permissions = {
     'generate_attestation',
     'view_attestations',
     'view_stats'
+=======
+    'decide_submission', 'view_submissions', 'create_workshop',
+    'edit_workshop', 'delete_workshop', 'view_workshops',
+    'manage_workshop_inscriptions', 'manage_workshop_supports',
+    'generate_attestation', 'view_attestations', 'view_stats',
+    'manage_program', 'manage_event'
+>>>>>>> 20af0652a2889cf611cf90939f7100f670ebea10:MedEventa-main/middlewares/permissions.js
   ],
 
   ORGANISATEUR: [
     'create_event', 'edit_event', 'manage_inscriptions', 'manage_evaluations',
+<<<<<<< HEAD:middlewares/permissions.js
     'decide_submission',
     'view_submissions',
     'create_workshop',
@@ -30,6 +39,13 @@ const permissions = {
     'generate_attestation',
     'view_attestations',
     'view_stats'
+=======
+    'decide_submission', 'view_submissions', 'create_workshop',
+    'edit_workshop', 'delete_workshop', 'view_workshops',
+    'manage_workshop_inscriptions', 'manage_workshop_supports',
+    'generate_attestation', 'view_attestations', 'view_stats',
+    'manage_program', 'manage_event'
+>>>>>>> 20af0652a2889cf611cf90939f7100f670ebea10:MedEventa-main/middlewares/permissions.js
   ],
 
   COMMUNICANT: [
@@ -54,8 +70,9 @@ const permissions = {
   MEMBRE_COMITE: [
     'evaluate_communications', 'view_comite',
     'decide_submission',
-    'view_submissions', 
-    'view_workshops'
+    'view_submissions',
+    'view_workshops',
+    'view_stats'
   ],
 
   INVITE: [
@@ -66,24 +83,21 @@ const permissions = {
   ],
 
   RESP_WORKSHOP: [
-  'view_workshops',
-  'create_workshop',         
-  'edit_workshop',
-  'delete_workshop',         
-  'manage_workshop_inscriptions',
-  'manage_workshop_supports'
-],
-  SUPER_ADMIN: ['create_event', 'delete_user', 'view_all', 'manage_evaluations', 'manage_program','manage_event',],
-  ORGANISATEUR: ['create_event', 'edit_event', 'manage_inscriptions', 'manage_evaluations', 'manage_program','manage_event',],
-  COMMUNICANT: ['submit_communication', 'view_own_communications', 'register_event'],
-  PARTICIPANT: ['register_event', 'view_public_info'],
-  MEMBRE_COMITE: ['evaluate_communications', 'view_comite'],
-  INVITE: ['view_event_details', 'register_event'],
-  RESP_WORKSHOP: ['manage_workshop'],
+    'view_workshops',
+    'create_workshop',
+    'edit_workshop',
+    'delete_workshop',
+    'manage_workshop_inscriptions',
+    'manage_workshop_supports',
+    'manage_workshop',
+    'generate_attestation'
+  ],
 };
 
 const hasPermission = (role, permission) => {
-  return permissions[role] && permissions[role].includes(permission);
+  if (!role) return false;
+  const normalizedRole = role.toUpperCase();
+  return permissions[normalizedRole] && permissions[normalizedRole].includes(permission);
 };
 
 const requirePermission = (permission) => (req, res, next) => {

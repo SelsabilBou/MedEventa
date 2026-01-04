@@ -18,9 +18,7 @@ const communicantValidation = [
   body('nom').notEmpty().withMessage('Le nom est requis'),
   body('prenom').notEmpty().withMessage('Le prénom est requis'),
   body('email').isEmail().withMessage('Email invalide'),
-  body('titre_communication')
-    .notEmpty()
-    .withMessage('Le titre de la communication est requis'),
+  body('titre_communication').optional(),
 ];
 
 const inviteValidation = [
@@ -34,12 +32,13 @@ const inviteValidation = [
 ];
 
 const inscriptionValidationByProfile = (profil) => {
-  switch (profil) {
-    case 'participant':
+  const p = profil ? profil.toUpperCase() : '';
+  switch (p) {
+    case 'PARTICIPANT':
       return [...baseInscriptionValidation, ...participantValidation];
-    case 'communicant':
+    case 'COMMUNICANT':
       return [...baseInscriptionValidation, ...communicantValidation];
-    case 'invite':
+    case 'INVITE':
       return [...baseInscriptionValidation, ...inviteValidation];
     default:
       return baseInscriptionValidation;

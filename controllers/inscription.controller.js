@@ -9,6 +9,8 @@ const {
   getBadgeByCode,
   getParticipants,
 } = require('../models/inscription.model');
+const { createNotification } = require('../models/notification.model');
+const db = require('../db');
 
 // Middleware qui applique la validation dynamique selon le profil
 const validateInscription = (req, res, next) => {
@@ -45,6 +47,10 @@ const register = (req, res) => {
       console.error("Erreur registerInscription:", err);
       return res.status(500).json({ message: "Erreur lors de l'inscription" });
     }
+
+    // Send notification
+    createNotification(userId, eventId, 'registration', `Vous êtes inscrit à l'événement.`)
+      .catch(nErr => console.error("Notification registration error:", nErr));
 
     res.status(201).json({
       message: "Inscription effectuée avec succès",
@@ -93,6 +99,16 @@ const updatePaymentStatusController = (req, res) => {
     }
     if (affected === 0) {
       return res.status(404).json({ message: 'Inscription non trouvée' });
+    }
+
+    // Notify user if paid
+    if (statut_paiement === 'paye_sur_place' || statut_paiement === 'paye_en_ligne') {
+      db.query('SELECT utilisateur_id, evenement_id FROM inscription WHERE id = ?', [inscriptionId], (iErr, iRows) => {
+        if (!iErr && iRows.length > 0) {
+          createNotification(iRows[0].utilisateur_id, iRows[0].evenement_id, 'payment_received', `Votre paiement a été reçu. Votre participation est confirmée.`)
+            .catch(nErr => console.error("Notification payment error:", nErr));
+        }
+      });
     }
 
     res.json({
@@ -149,6 +165,7 @@ const getBadgeController = (req, res) => {
 const getParticipantsController = (req, res) => {
   const { eventId } = req.params;
   const profil = req.query.profil || null; // optionnel
+  const { getParticipants } = require('../models/inscription.model');
 
   getParticipants(eventId, profil, (err, rows) => {
     if (err) {
@@ -171,6 +188,30 @@ const getParticipantsController = (req, res) => {
   });
 };
 
+const getMyRegistrationsController = (req, res) => {
+  const userId = req.user.id;
+  const { getUserInscriptions } = require('../models/inscription.model');
+
+  getUserInscriptions(userId, (err, registrations) => {
+    if (err) {
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+    res.json({ registrations });
+  });
+};
+
+const getMyProgrammeController = (req, res) => {
+  const userId = req.user.id;
+  const { getMyProgramme } = require('../models/inscription.model');
+
+  getMyProgramme(userId, (err, programme) => {
+    if (err) {
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+    res.json({ programme });
+  });
+};
+
 module.exports = {
   validateInscription,
   register,
@@ -179,5 +220,6 @@ module.exports = {
   generateBadgeController,
   getBadgeController,
   getParticipantsController,
-
+  getMyRegistrationsController,
+  getMyProgrammeController,
 };

@@ -10,7 +10,7 @@ const {
   deleteSupport,
 } = require('../models/workshopSupport.model');
 
-const ALLOWED_TYPES = ['pdf', 'link', 'video'];
+const ALLOWED_TYPES = ['pdf', 'ppt', 'doc', 'zip', 'file', 'link', 'video'];
 
 const canManageSupports = (reqUser, workshop) => {
   if (!reqUser) return false;
@@ -30,14 +30,12 @@ const listSupportsController = (req, res) => {
 };
 
 // POST /api/events/workshops/:workshopId/supports
-// - type=pdf => multipart/form-data + champ file = "pdf"
-// - type=link/video => JSON { type, url, titre }
 const addSupportController = (req, res) => {
   const workshopId = parseInt(req.params.workshopId, 10);
   const { type, url, titre } = req.body;
 
-  if (!ALLOWED_TYPES.includes(type)) {
-    return res.status(400).json({ message: "type invalide (pdf/link/video)" });
+  if (type && !ALLOWED_TYPES.includes(type)) {
+    return res.status(400).json({ message: "type invalide (pdf/ppt/doc/zip/link/video/file)" });
   }
 
   getWorkshopById(workshopId, (err, workshop) => {
@@ -48,32 +46,53 @@ const addSupportController = (req, res) => {
       return res.status(403).json({ message: 'Accès refusé (pas responsable du workshop)' });
     }
 
-    // PDF
-    if (type === 'pdf') {
-      if (!req.file) {
-        return res.status(400).json({ message: 'PDF requis (champ: pdf)' });
-      }
+    // Generic File Upload
+    const isFileType = ['pdf', 'ppt', 'doc', 'zip', 'file'].includes(type);
+    if (req.file) {
       const storedPath = path.join('uploads', 'workshop_supports', req.file.filename).replace(/\\/g, '/');
+      const finalType = type || path.extname(req.file.filename).slice(1) || 'file';
 
-      return addSupport(workshopId, { type, url: storedPath, titre }, (err2, supportId) => {
+      return addSupport(workshopId, { type: finalType, url: storedPath, titre: titre || req.file.originalname }, (err2, supportId) => {
         if (err2) return res.status(500).json({ message: 'Erreur serveur', error: err2.message });
-        return res.status(201).json({ message: 'Support ajouté', supportId, url: storedPath });
+
+        // Send notifications to all workshop participants
+        const { listWorkshopRegistrations } = require('../models/workshopRegistration.model');
+        const { createNotification } = require('../models/notification.model');
+
+        listWorkshopRegistrations(workshopId, (err3, participants) => {
+          if (!err3 && participants && participants.length > 0) {
+            const resourceTitle = titre || req.file.originalname;
+            participants.forEach(p => {
+              createNotification(
+                p.participant_id,
+                workshop.evenement_id,
+                'resource_uploaded',
+                `Nouveau document disponible: ${resourceTitle}`
+              ).catch(nErr => console.error("Notification resource upload error:", nErr));
+            });
+          }
+        });
+
+        return res.status(201).json({ message: 'Fichier ajouté', supportId, url: storedPath });
       });
     }
 
     // Link / Video
-    if (!url) {
-      return res.status(400).json({ message: 'url requis pour link/video' });
-    }
-    // validation URL simple (tu peux renforcer après)
-    if (!/^https?:\/\/.+/i.test(url)) {
-      return res.status(400).json({ message: 'url invalide (http/https requis)' });
+    if (type === 'link' || type === 'video') {
+      if (!url) {
+        return res.status(400).json({ message: 'url requis pour link/video' });
+      }
+      if (!/^https?:\/\/.+/i.test(url)) {
+        return res.status(400).json({ message: 'url invalide (http/https requis)' });
+      }
+
+      return addSupport(workshopId, { type, url, titre }, (err2, supportId) => {
+        if (err2) return res.status(500).json({ message: 'Erreur serveur', error: err2.message });
+        return res.status(201).json({ message: 'Lien ajouté', supportId });
+      });
     }
 
-    return addSupport(workshopId, { type, url, titre }, (err2, supportId) => {
-      if (err2) return res.status(500).json({ message: 'Erreur serveur', error: err2.message });
-      return res.status(201).json({ message: 'Support ajouté', supportId });
-    });
+    return res.status(400).json({ message: "Requête invalide: fichier ou lien manquant" });
   });
 };
 
@@ -100,7 +119,7 @@ const deleteSupportController = (req, res) => {
         // best-effort: supprimer le fichier si c'est un PDF local
         if (support.type === 'pdf' && support.url && support.url.startsWith('uploads/workshop_supports/')) {
           const abs = path.join(process.cwd(), support.url);
-          fs.unlink(abs, () => {});
+          fs.unlink(abs, () => { });
         }
 
         return res.status(200).json({ message: 'Support supprimé' });
