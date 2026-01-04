@@ -96,7 +96,7 @@ const sendWorkshopBroadcast = async (req, res) => {
       // Envoyer un message à chaque participant
       const promises = participants.map(p => createMessage(
         expediteur_id,
-        p.utilisateur_id,
+        p.participant_id,
         evenement_id || null,
         contenu,
         'notif'

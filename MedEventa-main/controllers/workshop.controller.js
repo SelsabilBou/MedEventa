@@ -5,8 +5,6 @@ const {
   createWorkshop,
   getWorkshopsByEvent,
   getWorkshopById,
-  getWorkshopsByEvent,
-  getWorkshopById,
   getWorkshopsByResponsible, // NEW
   getAllWorkshopsWithStats, // NEW
   updateWorkshop,
@@ -18,8 +16,8 @@ const {
 // Phase 4: pour vérifier qu'on ne baisse pas nb_places sous le nombre d'inscrits
 const { countRegistrations } = require('../models/workshopRegistration.model');
 
-// ✅ PHASE 5: check date workshop dans interval event
 const { checkWorkshopDateInEvent } = require('../models/event.model');
+const { createNotification } = require('../models/notification.model');
 
 // Convertit ISO8601 -> 'YYYY-MM-DD HH:MM:SS' (MySQL DATETIME)
 const isoToMySQLDateTime = (isoString) => {
@@ -155,6 +153,11 @@ const createWorkshopController = (req, res) => {
           if (err3) {
             return res.status(500).json({ message: 'Erreur serveur', error: err3.message });
           }
+
+          // Send notification to Organizer
+          createNotification(req.user.id, eventId, 'workshop_created', `Votre workshop "${titre}" a été créé avec succès.`)
+            .catch(nErr => console.error("Notification WS creation error:", nErr));
+
           return res.status(201).json({ message: 'Workshop créé', workshopId });
         }
       );

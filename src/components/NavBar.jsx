@@ -3,7 +3,7 @@ import "./Navbar.css";
 import { FaChevronDown, FaBars, FaBell } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import ActivityFeed from "./ActivityFeed";
-import axios from "axios";
+import api from "../api/axios";
 
 const Navbar = () => {
   const [user, setUser] = useState(() => {
@@ -22,20 +22,10 @@ const Navbar = () => {
   const location = useLocation();
 
   const fetchUnreadCount = async () => {
-    const token = localStorage.getItem("token");
-    if (!token || !user) return;
+    if (!user) return;
     try {
-      // Assuming GET /api/notifications calls getUnreadCountForUser internally or we can filter
-      // Actually simpler: let's just fetch notifications limit=1 to trigger backend check or add a specific endpoint
-      // Better: we added getUnreadCountForUser in model, let's use the dashboard activity endpoint or add a specific one.
-      // reusing /api/dashboard/activity is safest or just client side filter of /api/notifications?
-      // Let's use /api/notifications?limit=20 and count, although not perfect for total count.
-      // Correct approach: Use the /api/dashboard/activity endpoint which returns unreadCount directly
-
-      const res = await axios.get("/api/dashboard/activity", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.data && typeof res.data.unreadCount === 'number') {
+      const res = await api.get("/api/dashboard/activity");
+      if (res.data && typeof res.data.unreadCount === "number") {
         setUnreadCount(res.data.unreadCount);
       }
     } catch (err) {
@@ -193,23 +183,28 @@ const Navbar = () => {
                   type="button"
                   className="navbar-messages-pill"
                   onClick={() => setIsActivityOpen(true)}
-                  style={{ position: 'relative' }}
+                  style={{ position: "relative" }}
                 >
                   <FaBell className="navbar-burger-icon" />
                   {unreadCount > 0 && (
-                    <span className="navbar-messages-badge" style={{ backgroundColor: 'red', right: '-5px', top: '-5px' }}>
-                      {unreadCount > 9 ? '9+' : unreadCount}
+                    <span
+                      className="navbar-messages-badge"
+                      style={{
+                        backgroundColor: "red",
+                        right: "-5px",
+                        top: "-5px",
+                      }}
+                    >
+                      {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                   )}
                 </button>
 
                 {openMenu && (
                   <div className="navbar-dropdown">
-
                     {/* Bloc réservé aux participants */}
                     {user.role?.toUpperCase() === "PARTICIPANT" && (
                       <>
-
                         <button
                           type="button"
                           className="navbar-dropdown-item"
@@ -257,18 +252,19 @@ const Navbar = () => {
                     )}
 
                     {/* Bloc réservé aux communicants (Authors) */}
-                    {(user.role?.toUpperCase() === "COMMUNICANT" || user.role?.toUpperCase() === "SUPER_ADMIN") && (
-                      <button
-                        type="button"
-                        className="navbar-dropdown-item"
-                        onClick={() => {
-                          navigate("/author/dashboard");
-                          setOpenMenu(false);
-                        }}
-                      >
-                        Author Space
-                      </button>
-                    )}
+                    {(user.role?.toUpperCase() === "COMMUNICANT" ||
+                      user.role?.toUpperCase() === "SUPER_ADMIN") && (
+                        <button
+                          type="button"
+                          className="navbar-dropdown-item"
+                          onClick={() => {
+                            navigate("/author/dashboard");
+                            setOpenMenu(false);
+                          }}
+                        >
+                          Author Space
+                        </button>
+                      )}
                     {user.role?.toUpperCase() === "COMMUNICANT" && (
                       <>
                         <button
@@ -295,60 +291,64 @@ const Navbar = () => {
                     )}
 
                     {/* Bloc réservé aux organisateurs */}
-                    {(user.role?.toUpperCase() === "ORGANISATEUR" || user.role?.toUpperCase() === "SUPER_ADMIN") && (
-                      <button
-                        type="button"
-                        className="navbar-dropdown-item"
-                        onClick={() => {
-                          navigate("/admin/dashboard");
-                          setOpenMenu(false);
-                        }}
-                      >
-                        Organizer Space
-                      </button>
-                    )}
+                    {(user.role?.toUpperCase() === "ORGANISATEUR" ||
+                      user.role?.toUpperCase() === "SUPER_ADMIN") && (
+                        <button
+                          type="button"
+                          className="navbar-dropdown-item"
+                          onClick={() => {
+                            navigate("/admin/dashboard");
+                            setOpenMenu(false);
+                          }}
+                        >
+                          Organizer Space
+                        </button>
+                      )}
 
                     {/* Bloc réservé au comité scientifique */}
-                    {(user.role?.toUpperCase() === "MEMBRE_COMITE" || user.role?.toUpperCase() === "SUPER_ADMIN") && (
-                      <button
-                        type="button"
-                        className="navbar-dropdown-item"
-                        onClick={() => {
-                          navigate("/committee/dashboard");
-                          setOpenMenu(false);
-                        }}
-                      >
-                        Committee Space
-                      </button>
-                    )}
+                    {(user.role?.toUpperCase() === "MEMBRE_COMITE" ||
+                      user.role?.toUpperCase() === "SUPER_ADMIN") && (
+                        <button
+                          type="button"
+                          className="navbar-dropdown-item"
+                          onClick={() => {
+                            navigate("/committee/dashboard");
+                            setOpenMenu(false);
+                          }}
+                        >
+                          Committee Space
+                        </button>
+                      )}
 
                     {/* Bloc réservé aux responsables de workshop */}
-                    {(user.role?.toUpperCase() === "RESP_WORKSHOP" || user.role?.toUpperCase() === "SUPER_ADMIN") && (
-                      <button
-                        type="button"
-                        className="navbar-dropdown-item"
-                        onClick={() => {
-                          navigate("/workshop-manager/dashboard");
-                          setOpenMenu(false);
-                        }}
-                      >
-                        Workshop Space
-                      </button>
-                    )}
+                    {(user.role?.toUpperCase() === "RESP_WORKSHOP" ||
+                      user.role?.toUpperCase() === "SUPER_ADMIN") && (
+                        <button
+                          type="button"
+                          className="navbar-dropdown-item"
+                          onClick={() => {
+                            navigate("/workshop-manager/dashboard");
+                            setOpenMenu(false);
+                          }}
+                        >
+                          Workshop Space
+                        </button>
+                      )}
 
                     {/* Bloc réservé aux invités (Guest) */}
-                    {(user.role?.toUpperCase() === "INVITE" || user.role?.toUpperCase() === "SUPER_ADMIN") && (
-                      <button
-                        type="button"
-                        className="navbar-dropdown-item"
-                        onClick={() => {
-                          navigate("/guest/dashboard");
-                          setOpenMenu(false);
-                        }}
-                      >
-                        Guest Space
-                      </button>
-                    )}
+                    {(user.role?.toUpperCase() === "INVITE" ||
+                      user.role?.toUpperCase() === "SUPER_ADMIN") && (
+                        <button
+                          type="button"
+                          className="navbar-dropdown-item"
+                          onClick={() => {
+                            navigate("/guest/dashboard");
+                            setOpenMenu(false);
+                          }}
+                        >
+                          Guest Space
+                        </button>
+                      )}
 
                     {/* Bloc réservé aux super admins */}
                     {user.role?.toUpperCase() === "SUPER_ADMIN" && (

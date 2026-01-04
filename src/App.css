@@ -156,16 +156,16 @@ body::before {
 }
 
 .sidebar-header h1 {
-  font-size: 52px;
+  font-size: 42px;
   font-weight: 700;
   margin: 0;
-  letter-spacing: -1px;
+  letter-spacing: -1.5px;
 }
 
 .sidebar-header p {
-  font-size: 26px;
+  font-size: 20px;
   margin: 0;
-  opacity: 0.95;
+  opacity: 0.9;
   font-weight: 300;
 }
 
@@ -178,9 +178,10 @@ body::before {
 }
 
 .etape-header h2 {
-  font-size: 36px;
-  margin-bottom: 12px;
+  font-size: 28px;
+  margin-bottom: 8px;
   font-weight: 600;
+  color: #fff;
 }
 
 .etape-header p {
@@ -238,7 +239,7 @@ body::before {
 }
 
 .step-label {
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 500;
 }
 
@@ -452,25 +453,28 @@ body::before {
 /* Google Button */
 .google-btn {
   width: 100%;
-  padding: 13px;
-  border: 1.5px solid #e1e5eb;
-  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid #e1e5eb;
+  border-radius: 12px;
   background: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 11px;
+  gap: 12px;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
-  margin-top: 22px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 24px;
   color: #1a2332;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .google-btn:hover {
-  background: #f9fafb;
-  border-color: #d1d7e0;
+  background: #fff;
+  border-color: #cbd5e0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
 }
 
 /* Navigation Buttons */

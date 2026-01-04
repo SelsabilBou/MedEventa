@@ -83,10 +83,12 @@ const getWorkshopsByResponsible = (responsibleId, callback) => {
 const getAllWorkshopsWithStats = (callback) => {
   const sql = `
     SELECT w.*, e.titre AS event_titre,
+           u.nom AS responsable_nom, u.prenom AS responsable_prenom,
            (SELECT COUNT(*) FROM inscription_workshop WHERE workshop_id = w.id) AS registered_count,
            (SELECT COUNT(*) FROM inscription_workshop_attente WHERE workshop_id = w.id) AS waitlist_count
     FROM workshop w
     JOIN evenement e ON e.id = w.evenement_id
+    LEFT JOIN utilisateur u ON u.id = w.responsable_id
     ORDER BY w.date ASC
   `;
   db.query(sql, [], (err, rows) => {
@@ -141,6 +143,14 @@ const deleteWorkshop = (workshopId, callback) => {
   });
 };
 
+const updateWorkshopLeader = (workshopId, leaderId, callback) => {
+  const sql = 'UPDATE workshop SET responsable_id = ? WHERE id = ?';
+  db.query(sql, [leaderId, workshopId], (err, result) => {
+    if (err) return callback(err);
+    callback(null, result.affectedRows);
+  });
+};
+
 module.exports = {
   eventExists,
   userExists,
@@ -151,4 +161,5 @@ module.exports = {
   getWorkshopById,
   updateWorkshop,
   deleteWorkshop,
+  updateWorkshopLeader,
 };

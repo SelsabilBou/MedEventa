@@ -2,328 +2,450 @@ import React, { useState, useEffect } from "react";
 import AuthorLayout from "./AuthorLayout";
 import "./NewSubmission.css";
 import { FiPlus, FiUploadCloud } from "react-icons/fi";
+import { FaTimes, FaSpinner, FaPaperPlane, FaChevronDown } from "react-icons/fa";
 import axios from "axios";
+import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
 import Notification from "./Notification";
 
 const NewSubmission = () => {
-    const navigate = useNavigate();
-    const rawUser = localStorage.getItem("user");
-    const user = rawUser ? JSON.parse(rawUser) : null;
-    const token = localStorage.getItem("token");
+  const navigate = useNavigate();
+  const rawUser = localStorage.getItem("user");
+  const user = rawUser ? JSON.parse(rawUser) : null;
+  const token = localStorage.getItem("token");
 
-    const [events, setEvents] = useState([]);
-    const [selectedEventId, setSelectedEventId] = useState("");
-    const [notify, setNotify] = useState({ message: "", type: "" });
+  const [events, setEvents] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedEventId, setSelectedEventId] = useState("");
+  const [notify, setNotify] = useState({ message: "", type: "" });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showAuthorList, setShowAuthorList] = useState(false);
 
-    const [formData, setFormData] = useState({
-        title: "",
-        abstract: "",
-        type: "oral", // default
-        file: null,
-        fileName: "",
-        authors: [
-            {
-                fullName: user ? `${user.nom || ''} ${user.prenom || ''}`.trim() || user.name : "",
-                affiliation: user && user.institution ? user.institution : "",
-                email: user && user.email ? user.email : "",
-                isSpeaker: true,
-            },
-        ],
-    });
+  const [formData, setFormData] = useState({
+    title: "",
+    abstract: "",
+    type: "oral",
+    file: null,
+    fileName: "",
+    authorsFormatted: "",
+    correspondingAuthor: "",
+    email: "",
+    institution: "",
+  });
 
-    const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-    // Fetch Events for dropdown
-    useEffect(() => {
-        const fetchEvents = async () => {
-            try {
-                const res = await axios.get("/api/events");
-                if (res.data) {
-                    setEvents(res.data);
-                    // Default to first event if available
-                    if (res.data.length > 0) {
-                        setSelectedEventId(res.data[0].id);
-                    }
-                }
-            } catch (err) {
-                console.error("Failed to fetch events", err);
-            }
-        };
-        fetchEvents();
-    }, []);
+  // Robust pre-fill
+  useEffect(() => {
+    let userData = user;
+    if (!userData) {
+      try {
+        const raw = localStorage.getItem("user");
+        if (raw) userData = JSON.parse(raw);
+      } catch (e) {
+        console.error("Failed to parse user from localStorage", e);
+      }
+    }
 
-    const showNotify = (message, type = "success") => {
-        setNotify({ message, type });
-    };
+    if (userData) {
+      const name = userData.name || `${userData.prenom || ""} ${userData.nom || ""}`.trim();
+      setFormData(prev => ({
+        ...prev,
+        authorsFormatted: name,
+        correspondingAuthor: name,
+        email: userData.email || "",
+        institution: userData.institution || "",
+      }));
+    }
+  }, []);
 
-    const closeNotify = () => {
-        setNotify({ message: "", type: "" });
-    };
-
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
-    };
-
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setFormData(prev => ({ ...prev, file: file, fileName: file.name }));
+  // Fetch Events for dropdown
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const res = await api.get("/api/events");
+        if (res.data) {
+          setEvents(res.data);
+          // Default to first event if available
+          if (res.data.length > 0) {
+            setSelectedEventId(res.data[0].id);
+          }
         }
+      } catch (err) {
+        console.error("Failed to fetch events", err);
+      }
     };
+    fetchEvents();
+  }, []);
 
-    const handleAuthorChange = (index, field, value) => {
-        const newAuthors = [...formData.authors];
-        newAuthors[index][field] = value;
-        setFormData((prev) => ({
-            ...prev,
-            authors: newAuthors,
-        }));
-    };
-
-    const handleSpeakerToggle = (index) => {
-        const newAuthors = formData.authors.map((author, i) => ({
-            ...author,
-            isSpeaker: i === index,
-        }));
-        setFormData((prev) => ({ ...prev, authors: newAuthors }));
-    };
-
-    const addAuthor = () => {
-        setFormData((prev) => ({
-            ...prev,
-            authors: [
-                ...prev.authors,
-                { fullName: "", affiliation: "", email: "", isSpeaker: false },
-            ],
-        }));
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setSubmitting(true);
-        closeNotify();
-
-        if (!selectedEventId) {
-            showNotify("Please select an event to submit to.", "error");
-            setSubmitting(false);
-            return;
+  // Fetch all users for author selection
+  useEffect(() => {
+    const fetchAllUsers = async () => {
+      try {
+        const response = await api.get("/api/users");
+        if (response.data) {
+          setAllUsers(response.data.map(u => ({
+            ...u,
+            name: u.name || `${u.prenom || ""} ${u.nom || ""}`.trim()
+          })));
         }
-
-        if (!formData.file) {
-            showNotify("Please upload the abstract PDF.", "error");
-            setSubmitting(false);
-            return;
-        }
-
-        try {
-            const payload = new FormData();
-            payload.append("titre", formData.title);
-            payload.append("resume", formData.abstract); // We map abstract text to 'resume'
-            payload.append("type", formData.type);
-            payload.append("resumePdf", formData.file); // 'resumePdf' is key expected by backend
-
-            // Note: Backend might not support multiple authors in the DB relational model yet,
-            // but we are sending the core submission data. 
-            // Authors might be expected to be IN the PDF or stringified in resume?
-            // For now, we stick to the required backend fields.
-
-            if (token) {
-                await axios.post(`/api/events/${selectedEventId}/submissions`, payload, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "multipart/form-data"
-                    }
-                });
-                showNotify("Abstract submitted successfully!", "success");
-                setTimeout(() => navigate("/author/dashboard"), 2000);
-            } else {
-                showNotify("You must be logged in.", "error");
-            }
-
-        } catch (error) {
-            console.error("Submission failed", error);
-            const msg = error.response?.data?.message || "Failed to submit abstract.";
-            showNotify(msg, "error");
-        } finally {
-            setSubmitting(false);
-        }
+      } catch (err) {
+        console.error("Error fetching users for author selection:", err);
+      }
     };
+    fetchAllUsers();
+  }, []);
 
-    return (
-        <AuthorLayout>
-            <div className="ns-container">
-                <Notification message={notify.message} type={notify.type} onClose={closeNotify} />
-                <div className="ns-header">
-                    <h1>Submit Abstract</h1>
-                    <p>Fill in the details for your scientific communication.</p>
+  const dropdownRef = React.useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowAuthorList(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const showNotify = (message, type = "success") => {
+    setNotify({ message, type });
+  };
+
+  const closeNotify = () => {
+    setNotify({ message: "", type: "" });
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData((prev) => ({ ...prev, file: file, fileName: file.name }));
+    }
+  };
+
+  const handleAuthorSelect = (user) => {
+    const currentAuthors = formData.authorsFormatted ? formData.authorsFormatted.split(", ").filter(a => a) : [];
+    if (!currentAuthors.includes(user.name)) {
+      const newAuthors = [...currentAuthors, user.name].join(", ");
+      setFormData(prev => ({ ...prev, authorsFormatted: newAuthors }));
+    }
+    setSearchTerm("");
+    setShowAuthorList(false);
+  };
+
+  const removeAuthor = (authorName) => {
+    const newAuthors = formData.authorsFormatted
+      .split(", ")
+      .filter(a => a !== authorName)
+      .join(", ");
+    setFormData(prev => ({ ...prev, authorsFormatted: newAuthors }));
+  };
+
+  const filteredUsers = allUsers.filter(u =>
+    u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedEventId) {
+      showNotify("Please select an event.", "error");
+      return;
+    }
+    if (!formData.file) {
+      showNotify("Please upload an abstract file.", "error");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const data = new FormData();
+      data.append("titre", formData.title);
+      data.append("resume", formData.abstract);
+      data.append("type", formData.type);
+      data.append("resumePdf", formData.file);
+
+      data.append("authorsFormatted", formData.authorsFormatted);
+      data.append("institution", formData.institution);
+      data.append("correspondingAuthor", formData.correspondingAuthor);
+      data.append("email", formData.email);
+
+      const response = await api.post(`/api/events/${selectedEventId}/submissions`, data, {
+        headers: {
+          "Content-Type": "multipart/form-data"
+        },
+      });
+
+      if (response.status === 201) {
+        showNotify("Submission successful!");
+        setTimeout(() => navigate("/author/dashboard"), 2000);
+      }
+    } catch (err) {
+      console.error("Submission failed", err);
+      showNotify(err.response?.data?.message || "Submission failed.", "error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <AuthorLayout title="New Submission">
+      <div className="new-submission-container">
+        <div className="ns-card">
+          <form className="ns-form" onSubmit={handleSubmit}>
+            <div className="ns-form-header">
+              <h2>Submit New Abstract</h2>
+              <p>Fill in the details for your scientific communication</p>
+            </div>
+
+            <div className="ns-form-grid">
+              <div className="ns-section">
+                <div className="ns-section-header">
+                  <FiPlus /> General Information
                 </div>
 
-                <form onSubmit={handleSubmit}>
-                    {/* Event Selection */}
-                    <div className="ns-card">
-                        <div className="ns-form-group">
-                            <label className="ns-label">Select Event</label>
-                            <select
-                                className="ns-input"
-                                value={selectedEventId}
-                                onChange={(e) => setSelectedEventId(e.target.value)}
+                <div className="ns-field">
+                  <label>Select Event</label>
+                  <select
+                    value={selectedEventId}
+                    onChange={(e) => setSelectedEventId(e.target.value)}
+                    required
+                  >
+                    <option value="">-- Select an Event --</option>
+                    {events.map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.titre || ev.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="ns-field">
+                  <label>Title of Communication</label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    placeholder="Enter the title of your abstract"
+                    required
+                  />
+                </div>
+
+                <div className="ns-field">
+                  <label>Type of Presentation</label>
+                  <div className="ns-radio-group">
+                    <label className={`ns-radio ${formData.type === "oral" ? "active" : ""}`}>
+                      <input
+                        type="radio"
+                        name="type"
+                        value="oral"
+                        checked={formData.type === "oral"}
+                        onChange={handleInputChange}
+                      />
+                      Oral Presentation
+                    </label>
+                    <label className={`ns-radio ${formData.type === "poster" ? "active" : ""}`}>
+                      <input
+                        type="radio"
+                        name="type"
+                        value="poster"
+                        checked={formData.type === "poster"}
+                        onChange={handleInputChange}
+                      />
+                      Poster Presentation
+                    </label>
+                  </div>
+                </div>
+
+                <div className="ns-field">
+                  <label>Abstract Summary</label>
+                  <textarea
+                    name="abstract"
+                    value={formData.abstract}
+                    onChange={handleInputChange}
+                    placeholder="Brief summary of your work..."
+                    rows="5"
+                    required
+                  ></textarea>
+                </div>
+              </div>
+
+              <div className="ns-section">
+                <div className="ns-section-header">
+                  <FiPlus /> Authors & Institution
+                </div>
+
+                <div className="ns-field">
+                  <label>Authors (Select authors from database)</label>
+                  <div className="ns-author-select-wrapper" style={{ position: "relative" }} ref={dropdownRef}>
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type="text"
+                        placeholder="Search or choose authors..."
+                        value={searchTerm}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                          setShowAuthorList(true);
+                        }}
+                        onFocus={() => setShowAuthorList(true)}
+                        autoComplete="off"
+                        style={{ paddingRight: "30px" }}
+                      />
+                      <FaChevronDown
+                        style={{
+                          position: "absolute",
+                          right: "10px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: "#999",
+                          pointerEvents: "none"
+                        }}
+                      />
+                    </div>
+
+                    {showAuthorList && (
+                      <div className="ns-author-dropdown" style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        backgroundColor: "white",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                        borderRadius: "8px",
+                        zIndex: 1000,
+                        maxHeight: "200px",
+                        overflowY: "auto",
+                        border: "1px solid #e2e8f0"
+                      }}>
+                        {filteredUsers.length > 0 ? (
+                          filteredUsers.map(user => (
+                            <div
+                              key={user.id}
+                              className="ns-author-option"
+                              onClick={() => handleAuthorSelect(user)}
+                              style={{
+                                padding: "10px 15px",
+                                cursor: "pointer",
+                                borderBottom: "1px solid #f8fafc"
+                              }}
                             >
-                                {events.length === 0 && <option value="">Loading events...</option>}
-                                {events.map(ev => (
-                                    <option key={ev.id} value={ev.id}>{ev.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Section 1: details */}
-                    <div className="ns-card">
-                        <div className="ns-section-header">
-                            <div className="ns-step-badge">1</div>
-                            <div className="ns-section-title">Communication Details</div>
-                        </div>
-
-                        <div className="ns-form-group">
-                            <label className="ns-label">Title of Communication</label>
-                            <input
-                                type="text"
-                                name="title"
-                                className="ns-input"
-                                placeholder="Enter a descriptive title..."
-                                value={formData.title}
-                                onChange={handleInputChange}
-                                required
-                            />
-                        </div>
-
-                        <div className="ns-form-group">
-                            <label className="ns-label">Type</label>
-                            <select
-                                name="type"
-                                className="ns-input"
-                                value={formData.type}
-                                onChange={handleInputChange}
-                            >
-                                <option value="oral">Oral Communication</option>
-                                <option value="poster">Poster</option>
-                                <option value="workshop">Workshop</option>
-                            </select>
-                        </div>
-
-                        <div className="ns-form-group">
-                            <label className="ns-label">Abstract Text (Summary)</label>
-                            <textarea
-                                name="abstract"
-                                className="ns-textarea"
-                                placeholder="Summarize your research, findings, and conclusions..."
-                                value={formData.abstract}
-                                onChange={handleInputChange}
-                                required
-                            />
-                        </div>
-
-                        <div className="ns-form-group">
-                            <label className="ns-label">Upload Abstract PDF</label>
-                            <div className="file-upload-wrapper" style={{ border: '2px dashed #e2e8f0', padding: '20px', borderRadius: '8px', textAlign: 'center', cursor: 'pointer', position: 'relative' }}>
-                                <input
-                                    type="file"
-                                    accept="application/pdf"
-                                    onChange={handleFileChange}
-                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
-                                />
-                                <div style={{ pointerEvents: 'none' }}>
-                                    <FiUploadCloud size={24} color="#64748b" />
-                                    <p style={{ margin: '8px 0 0', color: '#64748b' }}>
-                                        {formData.fileName ? formData.fileName : "Click or drag PDF here"}
-                                    </p>
-                                </div>
+                              <div style={{ fontWeight: "500" }}>{user.name}</div>
+                              <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{user.email}</div>
                             </div>
-                        </div>
+                          ))
+                        ) : (
+                          <div style={{ padding: "10px 15px", color: "#94a3b8" }}>No users found</div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="ns-selected-authors" style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "10px" }}>
+                      {formData.authorsFormatted && formData.authorsFormatted.split(", ").filter(a => a).map((author, idx) => (
+                        <span key={idx} className="ns-author-tag" style={{
+                          backgroundColor: "#f1f5f9",
+                          color: "#475569",
+                          padding: "4px 12px",
+                          borderRadius: "20px",
+                          fontSize: "0.8rem",
+                          fontWeight: "500",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          border: "1px solid #e2e8f0"
+                        }}>
+                          {author}
+                          <FaTimes
+                            style={{ cursor: "pointer", fontSize: "0.7rem", color: "#94a3b8" }}
+                            onClick={() => removeAuthor(author)}
+                          />
+                        </span>
+                      ))}
                     </div>
+                  </div>
+                </div>
 
-                    {/* Section 2: Authors */}
-                    <div className="ns-card">
-                        <div className="ns-section-header">
-                            <div className="ns-step-badge">2</div>
-                            <div className="ns-section-title">Authors & Affiliations</div>
-                            <div className="ns-section-actions">
-                                <button type="button" className="ns-add-btn" onClick={addAuthor}>
-                                    <FiPlus /> Add Author
-                                </button>
-                            </div>
-                        </div>
+                <div className="ns-field">
+                  <label>Institution / Organization</label>
+                  <input
+                    type="text"
+                    name="institution"
+                    value={formData.institution}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
 
-                        {formData.authors.map((author, index) => (
-                            <div key={index} style={{ marginBottom: "2rem", borderBottom: index < formData.authors.length - 1 ? "1px solid #f1f5f9" : "none", paddingBottom: index < formData.authors.length - 1 ? "2rem" : "0" }}>
-                                <div className="ns-grid-2">
-                                    <div className="ns-form-group">
-                                        <label className="ns-label">Full Name</label>
-                                        <input
-                                            type="text"
-                                            className="ns-input"
-                                            value={author.fullName}
-                                            onChange={(e) => handleAuthorChange(index, "fullName", e.target.value)}
-                                            placeholder="Dr. John Doe"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="ns-form-group">
-                                        <label className="ns-label">Institution / Affiliation</label>
-                                        <input
-                                            type="text"
-                                            className="ns-input"
-                                            value={author.affiliation}
-                                            onChange={(e) => handleAuthorChange(index, "affiliation", e.target.value)}
-                                            placeholder="University Hospital..."
-                                            required
-                                        />
-                                    </div>
-                                </div>
+                <div className="ns-field">
+                  <label>Corresponding Author</label>
+                  <input
+                    type="text"
+                    name="correspondingAuthor"
+                    value={formData.correspondingAuthor}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
 
-                                <div className="ns-grid-2">
-                                    <div className="ns-form-group">
-                                        <label className="ns-label">Email Address</label>
-                                        <input
-                                            type="email"
-                                            className="ns-input"
-                                            value={author.email}
-                                            onChange={(e) => handleAuthorChange(index, "email", e.target.value)}
-                                            placeholder="email@example.com"
-                                        />
-                                    </div>
-                                    <div className="ns-form-group" style={{ display: "flex", alignItems: "flex-end", height: "100%", paddingBottom: "10px" }}>
-                                        <div className="ns-checkbox-group" onClick={() => handleSpeakerToggle(index)}>
-                                            <input
-                                                type="checkbox"
-                                                className="ns-checkbox"
-                                                checked={author.isSpeaker}
-                                                onChange={() => handleSpeakerToggle(index)}
-                                            />
-                                            <span className="ns-checkbox-label">Designated Speaker for this session</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                <div className="ns-field">
+                  <label>Contact Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
 
-                    <div className="ns-footer">
-                        <button type="button" className="ns-btn-secondary" onClick={() => navigate("/author/dashboard")}>
-                            Cancel
-                        </button>
-                        <button type="submit" className="ns-btn-primary" disabled={submitting}>
-                            {submitting ? "Submitting..." : "Submit for Review"}
-                        </button>
-                    </div>
-                </form>
+                <div className="ns-field ns-upload-field">
+                  <label>Full Abstract PDF</label>
+                  <div className={`ns-upload-box ${formData.file ? "has-file" : ""}`}>
+                    <input
+                      type="file"
+                      id="file-upload"
+                      accept=".pdf,.doc,.docx"
+                      onChange={handleFileChange}
+                    />
+                    <label htmlFor="file-upload">
+                      <FiUploadCloud />
+                      <span>{formData.fileName || "Upload PDF or Word Document"}</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
-        </AuthorLayout>
-    );
+
+            <div className="ns-form-actions">
+              <button type="button" className="btn-cancel" onClick={() => navigate("/author/dashboard")}>
+                Cancel
+              </button>
+              <button type="submit" className="btn-submit" disabled={submitting}>
+                {submitting ? "Processing..." : "Submit Abstract"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      {notify.message && (
+        <Notification
+          message={notify.message}
+          type={notify.type}
+          onClose={closeNotify}
+        />
+      )}
+    </AuthorLayout>
+  );
 };
 
 export default NewSubmission;

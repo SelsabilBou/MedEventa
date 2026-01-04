@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../api/axios";
 import {
     FiClipboard, FiCheckSquare, FiMessageSquare, FiX, FiSave,
     FiFileText, FiUser, FiInfo, FiLayers, FiSearch, FiAward,
@@ -34,10 +34,7 @@ const CommitteeDashboard = () => {
     const fetchAssignments = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem("token");
-            const response = await axios.get("/api/evaluations/my-assignments", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await api.get("/api/evaluations/committee/all-submissions");
             setAssignments(response.data);
 
             // If we have assignments, fetch stats for the first one's event
@@ -55,10 +52,7 @@ const CommitteeDashboard = () => {
 
     const fetchStats = async (eventId) => {
         try {
-            const token = localStorage.getItem("token");
-            const response = await axios.get(`/api/events/${eventId}/stats`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await api.get(`/api/events/${eventId}/stats`);
             setEventStats(response.data);
         } catch (error) {
             console.error("Error fetching event stats:", error);
@@ -80,12 +74,8 @@ const CommitteeDashboard = () => {
 
     const handleDownloadAttestation = async (eventId) => {
         try {
-            const token = localStorage.getItem("token");
-            const response = await axios({
-                url: `/api/attestations/me/download?evenementId=${eventId}&type=membre_comite`,
-                method: 'GET',
-                responseType: 'blob',
-                headers: { Authorization: `Bearer ${token}` }
+            const response = await api.get(`/api/attestations/me/download?evenementId=${eventId}&type=membre_comite`, {
+                responseType: 'blob'
             });
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
@@ -99,12 +89,15 @@ const CommitteeDashboard = () => {
         }
     };
 
-    const handleEvaluate = async (assignmentId) => {
+    const handleEvaluate = async (communicationId, evaluationId) => {
         try {
-            const token = localStorage.getItem("token");
-            const response = await axios.get(`/api/evaluations/evaluation/${assignmentId}/form`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            let finalEvalId = evaluationId;
+            if (!finalEvalId) {
+                const startRes = await api.post("/api/evaluations/start-evaluation", { communicationId });
+                finalEvalId = startRes.data.evaluationId;
+            }
+
+            const response = await api.get(`/api/evaluations/evaluation/${finalEvalId}/form`);
             const evalData = response.data.evaluation;
             setFormData(evalData);
 
@@ -116,26 +109,34 @@ const CommitteeDashboard = () => {
                 decision: evalData.decision || 'corriger'
             });
 
-            setSelectedAssignment(assignmentId);
+            setSelectedAssignment(finalEvalId);
         } catch (error) {
             console.error("Error loading form:", error);
-            alert("Could not load evaluation form");
+            alert("Could not load evaluation form: " + (error.response?.data?.message || error.message));
         }
     };
 
     const handleSubmitEvaluation = async (e) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem("token");
-            await axios.post(`/api/evaluations/evaluation/${selectedAssignment}/submit`, evalValues, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await api.post(`/api/evaluations/evaluation/${selectedAssignment}/submit`, evalValues);
             alert("Evaluation submitted successfully!");
             setSelectedAssignment(null);
             fetchAssignments();
         } catch (error) {
             console.error("Error submitting evaluation:", error);
-            alert("Submission failed: " + (error.response?.data?.message || "Unknown error"));
+            let errorMessage = "Unknown error";
+
+            if (error.response?.data?.errors) {
+                // If express-validator returned a list of errors
+                errorMessage = error.response.data.errors.map(err => err.msg).join(", ");
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else {
+                errorMessage = error.message;
+            }
+
+            alert("Submission failed: " + errorMessage);
         }
     };
 
@@ -258,8 +259,8 @@ const CommitteeDashboard = () => {
                                 <p>No {activeTab} submissions found in your vault.</p>
                             </div>
                         ) : (
-                            filteredAssignments.map(sub => (
-                                <div key={sub.id} className={`submission-card ${sub.status}`}>
+                            filteredAssignments.map((sub, idx) => (
+                                <div key={sub.evaluation_id || `sub-${sub.id}-${idx}`} className={`submission-card ${sub.status}`}>
                                     <div className="card-top">
                                         <span className="type-badge">{sub.type}</span>
                                         <span className={`status-pill ${sub.status}`}>{sub.status || 'Pending'}</span>
@@ -269,7 +270,7 @@ const CommitteeDashboard = () => {
                                         <FiUser /> <span>{sub.auteur_principal}</span>
                                     </div>
                                     <div className="card-actions">
-                                        <button className="primary-btn" onClick={() => handleEvaluate(sub.id)}>
+                                        <button className="primary-btn" onClick={() => handleEvaluate(sub.communication_id || sub.id, sub.evaluation_id)}>
                                             {sub.status === 'evaluated' ? 'View / Modify Review' : 'Start Evaluation'}
                                         </button>
                                     </div>
@@ -332,16 +333,16 @@ const CommitteeDashboard = () => {
                                     <form onSubmit={handleSubmitEvaluation} className="premium-form">
                                         <div className="score-row">
                                             <div className="form-group">
-                                                <label>Relevance (0-20)</label>
-                                                <input type="number" name="pertinence" min="0" max="20" value={evalValues.pertinence} onChange={handleChange} required />
+                                                <label>Relevance (1-5)</label>
+                                                <input type="number" name="pertinence" min="1" max="5" value={evalValues.pertinence} onChange={handleChange} required />
                                             </div>
                                             <div className="form-group">
-                                                <label>Quality (0-20)</label>
-                                                <input type="number" name="qualite_scientifique" min="0" max="20" value={evalValues.qualite_scientifique} onChange={handleChange} required />
+                                                <label>Quality (1-5)</label>
+                                                <input type="number" name="qualite_scientifique" min="1" max="5" value={evalValues.qualite_scientifique} onChange={handleChange} required />
                                             </div>
                                             <div className="form-group">
-                                                <label>Originality (0-20)</label>
-                                                <input type="number" name="originalite" min="0" max="20" value={evalValues.originalite} onChange={handleChange} required />
+                                                <label>Originality (1-5)</label>
+                                                <input type="number" name="originalite" min="1" max="5" value={evalValues.originalite} onChange={handleChange} required />
                                             </div>
                                         </div>
 

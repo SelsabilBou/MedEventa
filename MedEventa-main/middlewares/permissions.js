@@ -41,7 +41,8 @@ const permissions = {
     'evaluate_communications', 'view_comite',
     'decide_submission',
     'view_submissions',
-    'view_workshops'
+    'view_workshops',
+    'view_stats'
   ],
 
   INVITE: [
@@ -58,7 +59,8 @@ const permissions = {
     'delete_workshop',
     'manage_workshop_inscriptions',
     'manage_workshop_supports',
-    'manage_workshop'
+    'manage_workshop',
+    'generate_attestation'
   ],
 };
 

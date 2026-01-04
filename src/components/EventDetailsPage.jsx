@@ -144,6 +144,7 @@ const EventDetailsPage = () => {
   const badgeRef = useRef(null);
 
   const [currentUser, setCurrentUser] = useState(null);
+  const [allUsers, setAllUsers] = useState([]);
 
   // Get current user from API
   useEffect(() => {
@@ -156,17 +157,19 @@ const EventDetailsPage = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (response.data && response.data.user) {
-          // Normalize to frontend expected fields (name instead of nom/prenom)
           const user = response.data.user;
-          user.name = `${user.prenom} ${user.nom}`;
+          user.name = user.name || `${user.prenom || ""} ${user.nom || ""}`.trim();
           setCurrentUser(user);
         }
       } catch (error) {
         console.error("Error fetching user profile from /api/auth/me:", error);
-        // Fallback to localStorage if /api/auth/me fails (prevent breaking the page)
         try {
           const raw = localStorage.getItem("user");
-          if (raw) setCurrentUser(JSON.parse(raw));
+          if (raw) {
+            const user = JSON.parse(raw);
+            user.name = user.name || `${user.prenom || ""} ${user.nom || ""}`.trim();
+            setCurrentUser(user);
+          }
         } catch (e) {
           console.error("LocalStorage fallback failed:", e);
         }
@@ -174,6 +177,41 @@ const EventDetailsPage = () => {
     };
     fetchUser();
   }, []);
+
+  // Fetch all users for author selection
+  useEffect(() => {
+    const fetchAllUsers = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      try {
+        const response = await axios.get("/api/users", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.data) {
+          setAllUsers(response.data.map(u => ({
+            ...u,
+            name: u.name || `${u.prenom || ""} ${u.nom || ""}`.trim()
+          })));
+        }
+      } catch (err) {
+        console.error("Error fetching users for author selection:", err);
+      }
+    };
+    fetchAllUsers();
+  }, []);
+
+  // Pre-fill submission form when currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      console.log('Pre-filling form with currentUser:', currentUser);
+      setSubmissionForm(prev => ({
+        ...prev,
+        correspondingAuthor: currentUser.name || `${currentUser.prenom || ""} ${currentUser.nom || ""}`.trim(),
+        email: currentUser.email || "",
+        institution: currentUser.institution || "",
+      }));
+    }
+  }, [currentUser]);
 
   // Fetch event details from API
   useEffect(() => {
@@ -202,7 +240,12 @@ const EventDetailsPage = () => {
       console.log('fetchProgram calling with id:', id);
       if (!id) return;
       try {
-        const response = await axios.get(`/api/events/${id}/program`);
+        const token = localStorage.getItem("token");
+        const response = await axios.get(`/api/events/${id}/program`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         console.log('Sessions API Response:', response.data);
         if (response.data && response.data.sessions) {
           console.log(`Found ${response.data.sessions.length} sessions`);
@@ -597,9 +640,28 @@ const EventDetailsPage = () => {
     },
   };
 
-  const committeeMembers = eventDetails?.comite || [];
+  const committeeMembers = useMemo(() => {
+    return (eventDetails?.comite || []).map(m => ({
+      id: m.id,
+      name: `${m.prenom} ${m.nom}`,
+      role: "Scientific Committee Member",
+      organisation: m.institution || "N/A",
+      specialty: m.domaine_recherche || "N/A",
+      photo: m.photo
+    }));
+  }, [eventDetails]);
 
-  const guests = eventDetails?.invites || [];
+  const guests = useMemo(() => {
+    return (eventDetails?.invites || []).map(g => ({
+      id: g.id,
+      name: `${g.prenom} ${g.nom}`,
+      country: "Guest Speaker",
+      title: "Invited Speaker",
+      organisation: g.institution || "Scientific Institution",
+      talkTitle: g.sujet_conference || "Scientific Talk",
+      photo: g.photo
+    }));
+  }, [eventDetails]);
 
   const summaryContent = event?.summary || {
     abstract: eventDetails?.event?.description || `The MEDEVENTA congress brings together healthcare professionals, researchers, and innovators.`,
@@ -720,40 +782,7 @@ const EventDetailsPage = () => {
   }));
   console.log('Final Mapped Sessions:', sessions);
 
-  const speakers = event?.speakers || [
-    {
-      id: 1,
-      name: "Dr. Aris Thorne",
-      role: "Principal Researcher",
-      organisation: "Quantum Dynamics",
-      bio: "Pioneer in quantum computing and distributed architecture systems for healthcare.",
-      country: "USA",
-    },
-    {
-      id: 2,
-      name: "Elena Rodriguez",
-      role: "Head of UX",
-      organisation: "Creative Studio",
-      bio: "Focuses on human‑centric AI design and ethical interfaces for medical applications.",
-      country: "Spain",
-    },
-    {
-      id: 3,
-      name: "Marcus Chen",
-      role: "VP Engineering",
-      organisation: "CloudScale",
-      bio: "Architecting the backbone of global serverless infrastructures for healthcare systems.",
-      country: "Singapore",
-    },
-    {
-      id: 4,
-      name: "Prof. Michael Johnson",
-      role: "Department Head",
-      organisation: "Harvard Medical School",
-      bio: "Leading researcher in personalized medicine and genomic data analysis.",
-      country: "USA",
-    },
-  ];
+  const speakers = guests; // Use the real guests as speakers
 
   const paymentStatus =
     inscriptionData?.paymentStatus ||
@@ -811,9 +840,14 @@ const EventDetailsPage = () => {
       formData.append("titre", submissionForm.title);
       formData.append("resume", submissionForm.abstract);
       formData.append("type", submissionForm.presentationType);
-      // Add other fields if needed by backend
-      if (submissionForm.authors)
-        formData.append("authors", submissionForm.authors);
+
+      // Fix for Dashboard: added missing fields that backend expects for complete author info
+      formData.append("authorsFormatted", submissionForm.authors);
+      formData.append("institution", submissionForm.institution);
+      formData.append("correspondingAuthor", submissionForm.correspondingAuthor);
+      formData.append("email", submissionForm.email);
+      formData.append("evenement_id", id);
+
       if (submissionForm.keywords)
         formData.append("keywords", submissionForm.keywords);
 
@@ -1342,7 +1376,14 @@ const EventDetailsPage = () => {
 
         return (
           <EventCallSection
-            callForPapers={callForPapers}
+            callForPapers={event?.callForPapers || {
+              title: "Appel à Communications",
+              deadline: event?.submission_deadline || "TBA",
+              notificationDate: "TBA",
+              contact: { name: "Organisateur", email: currentUser?.email || "", phone: "" },
+              topics: [],
+              guidelines: ["Format PDF uniquement", "Maximum 300 mots"]
+            }}
             showSubmissionForm={showSubmissionForm}
             setShowSubmissionForm={setShowSubmissionForm}
             submissionSuccess={submissionSuccess}
@@ -1351,7 +1392,8 @@ const EventDetailsPage = () => {
             handleSubmissionChange={handleSubmissionChange}
             handleSubmitSubmission={handleSubmitSubmission}
             loading={loading}
-            isAuthor={isAuthor}
+            isAuthor={true}
+            allUsers={allUsers}
           />
         );
       }

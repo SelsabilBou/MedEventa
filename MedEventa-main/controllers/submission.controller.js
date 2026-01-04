@@ -1,7 +1,7 @@
 // controllers/submission.controller.js
-const fs = require('fs');
-const path = require('path');
-const db = require('../db');
+const fs = require("fs");
+const path = require("path");
+const db = require("../db");
 
 const {
   createSubmission,
@@ -12,17 +12,19 @@ const {
 
   logSubmissionHistory,
   withdrawSubmission,
-} = require('../models/submission.model');
+} = require("../models/submission.model");
 
-const { isSubmissionOpen } = require('../models/event.model');
+const { isSubmissionOpen } = require("../models/event.model");
 
 // Statuts autorisés (decision comité/organisateur)
-const ALLOWED_STATUS = ['en_attente', 'acceptee', 'refusee', 'en_revision'];
+const ALLOWED_STATUS = ["en_attente", "acceptee", "refusee", "en_revision"];
 
 // Petit helper: suppression best-effort
 const safeUnlink = (filePath) => {
   if (!filePath) return;
-  const abs = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
+  const abs = path.isAbsolute(filePath)
+    ? filePath
+    : path.join(process.cwd(), filePath);
   fs.unlink(abs, () => { });
 };
 
@@ -33,33 +35,37 @@ const createSubmissionController = (req, res) => {
 
   if (!titre || !resume || !type) {
     safeUnlink(req.file?.path);
-    return res.status(400).json({ message: 'Champs requis: titre, resume, type' });
+    return res
+      .status(400)
+      .json({ message: "Champs requis: titre, resume, type" });
   }
 
   if (!req.file) {
-    return res.status(400).json({ message: 'Fichier PDF requis (champ: resumePdf)' });
+    return res
+      .status(400)
+      .json({ message: "Fichier PDF requis (champ: resumePdf)" });
   }
 
   isSubmissionOpen(Number(eventId), (err, check) => {
     if (err) {
-      console.error('DB error isSubmissionOpen:', err);
+      console.error("DB error isSubmissionOpen:", err);
       safeUnlink(req.file?.path);
-      return res.status(500).json({ message: 'Erreur serveur' });
+      return res.status(500).json({ message: "Erreur serveur" });
     }
 
     if (!check.ok) {
       safeUnlink(req.file?.path);
 
-      if (check.reason === 'EVENT_NOT_FOUND') {
-        return res.status(404).json({ message: 'Événement introuvable' });
+      if (check.reason === "EVENT_NOT_FOUND") {
+        return res.status(404).json({ message: "Événement introuvable" });
       }
-      if (check.reason === 'DEADLINE_PASSED') {
+      if (check.reason === "DEADLINE_PASSED") {
         return res.status(403).json({
-          message: 'Les soumissions sont fermées (date limite dépassée)',
+          message: "Les soumissions sont fermées (date limite dépassée)",
           deadline: check.deadline,
         });
       }
-      return res.status(403).json({ message: 'Soumission non autorisée' });
+      return res.status(403).json({ message: "Soumission non autorisée" });
     }
 
     const data = {
@@ -73,14 +79,41 @@ const createSubmissionController = (req, res) => {
 
     createSubmission(data, (err2, submissionId) => {
       if (err2) {
-        console.error('DB error createSubmission:', err2);
+        console.error("DB error createSubmission:", err2);
         safeUnlink(req.file?.path);
-        return res.status(500).json({ message: 'Erreur serveur' });
+        return res.status(500).json({ message: "Erreur serveur" });
       }
+
+      // Automatically assign scientific committee members to this new submission
+      const sqlGetCommittee = `
+        SELECT mc.id
+        FROM membre_comite mc
+        JOIN comite_scientifique cs ON mc.comite_id = cs.id
+        WHERE cs.evenement_id = ?
+      `;
+
+      db.query(sqlGetCommittee, [Number(eventId)], (err3, members) => {
+        if (err3) {
+          console.error(
+            "Error fetching committee members for auto-assignment:",
+            err3
+          );
+        } else if (members && members.length > 0) {
+          const values = members.map((m) => [submissionId, m.id, "corriger"]);
+          const sqlAssign = `
+            INSERT IGNORE INTO evaluation (communication_id, membre_comite_id, decision)
+            VALUES ?
+          `;
+          db.query(sqlAssign, [values], (err4) => {
+            if (err4)
+              console.error("Error auto-assigning committee members:", err4);
+          });
+        }
+      });
 
       // CREATE est déjà loggé dans le model
       return res.status(201).json({
-        message: 'Soumission créée avec succès',
+        message: "Soumission créée avec succès",
         submissionId,
       });
     });
@@ -94,37 +127,42 @@ const updateSubmissionController = (req, res) => {
 
   getSubmissionById(Number(submissionId), (err, submission) => {
     if (err) {
-      console.error('DB error getSubmissionById:', err);
+      console.error("DB error getSubmissionById:", err);
       safeUnlink(req.file?.path);
-      return res.status(500).json({ message: 'Erreur serveur' });
+      return res.status(500).json({ message: "Erreur serveur" });
     }
     if (!submission) {
       safeUnlink(req.file?.path);
-      return res.status(404).json({ message: 'Soumission introuvable' });
+      return res.status(404).json({ message: "Soumission introuvable" });
     }
 
-    if (submission.etat === 'retire') {
+    if (submission.etat === "retire") {
       safeUnlink(req.file?.path);
-      return res.status(400).json({ message: 'Action interdite: soumission retirée' });
+      return res
+        .status(400)
+        .json({ message: "Action interdite: soumission retirée" });
     }
 
     const isOwner = submission.auteur_id === req.user.id;
-    const isAdmin = req.user.role === 'SUPER_ADMIN' || req.user.role === 'ORGANISATEUR';
+    const isAdmin =
+      req.user.role === "SUPER_ADMIN" || req.user.role === "ORGANISATEUR";
     if (!isOwner && !isAdmin) {
       safeUnlink(req.file?.path);
-      return res.status(403).json({ message: 'Accès interdit (pas propriétaire)' });
+      return res
+        .status(403)
+        .json({ message: "Accès interdit (pas propriétaire)" });
     }
 
     isSubmissionOpen(Number(submission.evenement_id), (err2, check) => {
       if (err2) {
-        console.error('DB error isSubmissionOpen:', err2);
+        console.error("DB error isSubmissionOpen:", err2);
         safeUnlink(req.file?.path);
-        return res.status(500).json({ message: 'Erreur serveur' });
+        return res.status(500).json({ message: "Erreur serveur" });
       }
-      if (!check.ok && check.reason === 'DEADLINE_PASSED') {
+      if (!check.ok && check.reason === "DEADLINE_PASSED") {
         safeUnlink(req.file?.path);
         return res.status(403).json({
-          message: 'Modifications interdites (date limite dépassée)',
+          message: "Modifications interdites (date limite dépassée)",
           deadline: check.deadline,
         });
       }
@@ -142,18 +180,20 @@ const updateSubmissionController = (req, res) => {
 
       if (Object.keys(newData).length === 0) {
         safeUnlink(req.file?.path);
-        return res.status(400).json({ message: 'Aucune donnée à mettre à jour' });
+        return res
+          .status(400)
+          .json({ message: "Aucune donnée à mettre à jour" });
       }
 
       updateSubmission(Number(submissionId), newData, (err3, affectedRows) => {
         if (err3) {
-          console.error('DB error updateSubmission:', err3);
+          console.error("DB error updateSubmission:", err3);
           safeUnlink(req.file?.path);
-          return res.status(500).json({ message: 'Erreur serveur' });
+          return res.status(500).json({ message: "Erreur serveur" });
         }
         if (!affectedRows) {
           safeUnlink(req.file?.path);
-          return res.status(404).json({ message: 'Soumission introuvable' });
+          return res.status(404).json({ message: "Soumission introuvable" });
         }
 
         if (oldFileToDelete) safeUnlink(oldFileToDelete);
@@ -166,10 +206,17 @@ const updateSubmissionController = (req, res) => {
         };
         const newValue = { ...oldValue, ...newData };
 
-        logSubmissionHistory(Number(submissionId), 'UPDATE', oldValue, newValue, req.user.id, (e) => {
-          if (e) console.error('History log error (UPDATE):', e);
-          return res.status(200).json({ message: 'Soumission mise à jour' });
-        });
+        logSubmissionHistory(
+          Number(submissionId),
+          "UPDATE",
+          oldValue,
+          newValue,
+          req.user.id,
+          (e) => {
+            if (e) console.error("History log error (UPDATE):", e);
+            return res.status(200).json({ message: "Soumission mise à jour" });
+          }
+        );
       });
     });
   });
@@ -181,50 +228,62 @@ const deleteSubmissionController = (req, res) => {
 
   getSubmissionById(Number(submissionId), (err, submission) => {
     if (err) {
-      console.error('DB error getSubmissionById:', err);
-      return res.status(500).json({ message: 'Erreur serveur' });
+      console.error("DB error getSubmissionById:", err);
+      return res.status(500).json({ message: "Erreur serveur" });
     }
     if (!submission) {
-      return res.status(404).json({ message: 'Soumission introuvable' });
+      return res.status(404).json({ message: "Soumission introuvable" });
     }
 
-    if (submission.etat === 'retire') {
-      return res.status(400).json({ message: 'Action interdite: soumission retirée' });
+    if (submission.etat === "retire") {
+      return res
+        .status(400)
+        .json({ message: "Action interdite: soumission retirée" });
     }
 
     const isOwner = submission.auteur_id === req.user.id;
-    const isAdmin = req.user.role === 'SUPER_ADMIN' || req.user.role === 'ORGANISATEUR';
+    const isAdmin =
+      req.user.role === "SUPER_ADMIN" || req.user.role === "ORGANISATEUR";
     if (!isOwner && !isAdmin) {
-      return res.status(403).json({ message: 'Accès interdit (pas propriétaire)' });
+      return res
+        .status(403)
+        .json({ message: "Accès interdit (pas propriétaire)" });
     }
 
     isSubmissionOpen(Number(submission.evenement_id), (err2, check) => {
       if (err2) {
-        console.error('DB error isSubmissionOpen:', err2);
-        return res.status(500).json({ message: 'Erreur serveur' });
+        console.error("DB error isSubmissionOpen:", err2);
+        return res.status(500).json({ message: "Erreur serveur" });
       }
-      if (!check.ok && check.reason === 'DEADLINE_PASSED') {
+      if (!check.ok && check.reason === "DEADLINE_PASSED") {
         return res.status(403).json({
-          message: 'Suppression interdite (date limite dépassée)',
+          message: "Suppression interdite (date limite dépassée)",
           deadline: check.deadline,
         });
       }
 
       deleteSubmission(Number(submissionId), (err3, affectedRows) => {
         if (err3) {
-          console.error('DB error deleteSubmission:', err3);
-          return res.status(500).json({ message: 'Erreur serveur' });
+          console.error("DB error deleteSubmission:", err3);
+          return res.status(500).json({ message: "Erreur serveur" });
         }
         if (!affectedRows) {
-          return res.status(404).json({ message: 'Soumission introuvable' });
+          return res.status(404).json({ message: "Soumission introuvable" });
         }
 
         safeUnlink(submission.fichier_pdf);
 
-        logSubmissionHistory(Number(submissionId), 'DELETE', { id: submission.id }, null, req.user.id, (e) => {
-          if (e) console.error('History log error (DELETE):', e);
-          return res.status(200).json({ message: 'Soumission supprimée' });
-        });
+        logSubmissionHistory(
+          Number(submissionId),
+          "DELETE",
+          { id: submission.id },
+          null,
+          req.user.id,
+          (e) => {
+            if (e) console.error("History log error (DELETE):", e);
+            return res.status(200).json({ message: "Soumission supprimée" });
+          }
+        );
       });
     });
   });
@@ -237,52 +296,73 @@ const updateStatusController = (req, res) => {
 
   if (!status || !ALLOWED_STATUS.includes(status)) {
     return res.status(400).json({
-      message: 'Statut invalide',
+      message: "Statut invalide",
       allowed: ALLOWED_STATUS,
     });
   }
 
   getSubmissionById(Number(submissionId), (err, submission) => {
     if (err) {
-      console.error('DB error getSubmissionById:', err);
-      return res.status(500).json({ message: 'Erreur serveur' });
+      console.error("DB error getSubmissionById:", err);
+      return res.status(500).json({ message: "Erreur serveur" });
     }
     if (!submission) {
-      return res.status(404).json({ message: 'Soumission introuvable' });
+      return res.status(404).json({ message: "Soumission introuvable" });
     }
 
-    if (submission.etat === 'retire') {
-      return res.status(400).json({ message: 'Action interdite: soumission retirée' });
+    if (submission.etat === "retire") {
+      return res
+        .status(400)
+        .json({ message: "Action interdite: soumission retirée" });
     }
 
     const oldValue = { etat: submission.etat };
     const newValue = { etat: status };
 
-    setSubmissionStatus(Number(submissionId), status, req.user.id, (err2, affectedRows) => {
-      if (err2) {
-        console.error('DB error setSubmissionStatus:', err2);
-        return res.status(500).json({ message: 'Erreur serveur' });
-      }
-      if (!affectedRows) {
-        return res.status(400).json({ message: 'Action impossible (soumission retirée ou introuvable)' });
-      }
+    setSubmissionStatus(
+      Number(submissionId),
+      status,
+      req.user.id,
+      (err2, affectedRows) => {
+        if (err2) {
+          console.error("DB error setSubmissionStatus:", err2);
+          return res.status(500).json({ message: "Erreur serveur" });
+        }
+        if (!affectedRows) {
+          return res
+            .status(400)
+            .json({
+              message: "Action impossible (soumission retirée ou introuvable)",
+            });
+        }
 
-      logSubmissionHistory(Number(submissionId), 'STATUS_CHANGE', oldValue, newValue, req.user.id, (e) => {
-        if (e) console.error('History log error (STATUS_CHANGE):', e);
+        logSubmissionHistory(
+          Number(submissionId),
+          "STATUS_CHANGE",
+          oldValue,
+          newValue,
+          req.user.id,
+          (e) => {
+            if (e) console.error("History log error (STATUS_CHANGE):", e);
 
-        getSubmissionById(Number(submissionId), (err3, updated) => {
-          if (err3) {
-            console.error('DB error getSubmissionById (after update):', err3);
-            return res.status(500).json({ message: 'Erreur serveur' });
+            getSubmissionById(Number(submissionId), (err3, updated) => {
+              if (err3) {
+                console.error(
+                  "DB error getSubmissionById (after update):",
+                  err3
+                );
+                return res.status(500).json({ message: "Erreur serveur" });
+              }
+
+              return res.status(200).json({
+                message: "Statut mis à jour",
+                submission: updated,
+              });
+            });
           }
-
-          return res.status(200).json({
-            message: 'Statut mis à jour',
-            submission: updated,
-          });
-        });
-      });
-    });
+        );
+      }
+    );
   });
 };
 
@@ -292,51 +372,59 @@ const withdrawController = (req, res) => {
 
   getSubmissionById(Number(submissionId), (err, submission) => {
     if (err) {
-      console.error('DB error getSubmissionById:', err);
-      return res.status(500).json({ message: 'Erreur serveur' });
+      console.error("DB error getSubmissionById:", err);
+      return res.status(500).json({ message: "Erreur serveur" });
     }
     if (!submission) {
-      return res.status(404).json({ message: 'Soumission introuvable' });
+      return res.status(404).json({ message: "Soumission introuvable" });
     }
 
     const isOwner = submission.auteur_id === req.user.id;
     if (!isOwner) {
-      return res.status(403).json({ message: 'Accès interdit (pas propriétaire)' });
+      return res
+        .status(403)
+        .json({ message: "Accès interdit (pas propriétaire)" });
     }
 
     isSubmissionOpen(Number(submission.evenement_id), (err2, check) => {
       if (err2) {
-        console.error('DB error isSubmissionOpen:', err2);
-        return res.status(500).json({ message: 'Erreur serveur' });
+        console.error("DB error isSubmissionOpen:", err2);
+        return res.status(500).json({ message: "Erreur serveur" });
       }
-      if (!check.ok && check.reason === 'DEADLINE_PASSED') {
+      if (!check.ok && check.reason === "DEADLINE_PASSED") {
         return res.status(403).json({
-          message: 'Retrait interdit (date limite dépassée)',
+          message: "Retrait interdit (date limite dépassée)",
           deadline: check.deadline,
         });
       }
 
-      withdrawSubmission(Number(submissionId), req.user.id, (err3, affectedRows) => {
-        if (err3) {
-          console.error('DB error withdrawSubmission:', err3);
-          return res.status(500).json({ message: 'Erreur serveur' });
-        }
-        if (!affectedRows) {
-          return res.status(400).json({ message: 'Soumission déjà retirée ou introuvable' });
-        }
-
-        logSubmissionHistory(
-          Number(submissionId),
-          'WITHDRAW',
-          { etat: submission.etat },
-          { etat: 'retire' },
-          req.user.id,
-          (e) => {
-            if (e) console.error('History log error (WITHDRAW):', e);
-            return res.status(200).json({ message: 'Soumission retirée' });
+      withdrawSubmission(
+        Number(submissionId),
+        req.user.id,
+        (err3, affectedRows) => {
+          if (err3) {
+            console.error("DB error withdrawSubmission:", err3);
+            return res.status(500).json({ message: "Erreur serveur" });
           }
-        );
-      });
+          if (!affectedRows) {
+            return res
+              .status(400)
+              .json({ message: "Soumission déjà retirée ou introuvable" });
+          }
+
+          logSubmissionHistory(
+            Number(submissionId),
+            "WITHDRAW",
+            { etat: submission.etat },
+            { etat: "retire" },
+            req.user.id,
+            (e) => {
+              if (e) console.error("History log error (WITHDRAW):", e);
+              return res.status(200).json({ message: "Soumission retirée" });
+            }
+          );
+        }
+      );
     });
   });
 };
@@ -355,8 +443,8 @@ const getSubmissionsForEventController = (req, res) => {
 
   db.query(sql, [eventId], (err, results) => {
     if (err) {
-      console.error('Error fetching submissions:', err);
-      return res.status(500).json({ message: 'Erreur serveur' });
+      console.error("Error fetching submissions:", err);
+      return res.status(500).json({ message: "Erreur serveur" });
     }
     res.json(results);
   });

@@ -7,6 +7,8 @@ const {
     updatePresence,
     updateConfirmationStatus,
 } = require('../models/workshopRegistration.model');
+const { createNotification } = require('../models/notification.model');
+const db = require('../db'); // For fetching event_id or workshop title
 
 
 const registerWorkshopController = (req, res) => {
@@ -38,6 +40,14 @@ const registerWorkshopController = (req, res) => {
 
 
         // ✅ inscription normale
+        // Fetch event_id for the workshop to link notification
+        db.query('SELECT evenement_id, titre FROM workshop WHERE id = ?', [workshopId], (wErr, wRows) => {
+            const evId = wRows?.[0]?.evenement_id || null;
+            const wsTitre = wRows?.[0]?.titre || "Workshop";
+            createNotification(userId, evId, 'workshop_registration', `Vous êtes inscrit au workshop: ${wsTitre}`)
+                .catch(nErr => console.error("Notification WS registration error:", nErr));
+        });
+
         return res.status(201).json({
             message: 'Inscription workshop réussie',
             registrationId: result.registrationId,
@@ -72,6 +82,15 @@ const unregisterWorkshopController = (req, res) => {
 
 
             // status === 'UNREGISTERED'
+            if (result.promoted && result.promoted_user_id) {
+                db.query('SELECT evenement_id, titre FROM workshop WHERE id = ?', [workshopId], (wErr, wRows) => {
+                    const evId = wRows?.[0]?.evenement_id || null;
+                    const wsTitre = wRows?.[0]?.titre || "Workshop";
+                    createNotification(result.promoted_user_id, evId, 'workshop_promotion', `Bonne nouvelle! Vous avez été promu de la liste d'attente pour le workshop: ${wsTitre}`)
+                        .catch(nErr => console.error("Notification WS promotion error:", nErr));
+                });
+            }
+
             return res.status(200).json({
                 message: 'Désinscription workshop réussie',
                 promoted: result.promoted || false,

@@ -31,15 +31,28 @@ const ActivityFeed = ({ isOpen: externalIsOpen, onClose }) => {
   const getNotificationIcon = (type) => {
     switch (type) {
       case "submission_accepted":
+      case "payment_received":
+      case "certificate_generated":
         return <FaCheck />;
       case "submission_refused":
         return <FaTimes />;
       case "room_change":
       case "programme_change":
+      case "workshop_promotion":
         return <FaSync />;
       case "new_message":
       case "broadcast_message":
+      case "committee_invite":
+      case "event_invite":
+      case "workshop_assignment":
+      case "resource_uploaded":
         return <FaEnvelope />;
+      case "registration":
+      case "workshop_registration":
+      case "event_created":
+      case "workshop_created":
+      case "session_created":
+        return <FaCheck />;
       default:
         return <FaEnvelope />;
     }
@@ -49,14 +62,26 @@ const ActivityFeed = ({ isOpen: externalIsOpen, onClose }) => {
   const getIconClass = (type) => {
     switch (type) {
       case "submission_accepted":
+      case "payment_received":
+      case "registration":
+      case "workshop_registration":
+      case "certificate_generated":
         return "activity-icon success";
       case "submission_refused":
         return "activity-icon error";
       case "room_change":
       case "programme_change":
+      case "workshop_promotion":
         return "activity-icon warning";
       case "new_message":
       case "broadcast_message":
+      case "committee_invite":
+      case "event_invite":
+      case "workshop_assignment":
+      case "event_created":
+      case "workshop_created":
+      case "session_created":
+      case "resource_uploaded":
         return "activity-icon info";
       default:
         return "activity-icon info";
@@ -73,6 +98,32 @@ const ActivityFeed = ({ isOpen: externalIsOpen, onClose }) => {
       return "Submission Accepted";
     } else if (type === "submission_refused") {
       return "Submission Refused";
+    } else if (type === "submission_revision") {
+      return "Revision Needed";
+    } else if (type === "registration") {
+      return "Event Registration";
+    } else if (type === "workshop_registration") {
+      return "Workshop Registration";
+    } else if (type === "workshop_promotion") {
+      return "Waitlist Promotion";
+    } else if (type === "payment_received") {
+      return "Payment Confirmed";
+    } else if (type === "certificate_generated") {
+      return "Certificate Ready";
+    } else if (type === "event_created") {
+      return "Event Created";
+    } else if (type === "workshop_created") {
+      return "Workshop Created";
+    } else if (type === "session_created") {
+      return "Session Created";
+    } else if (type === "committee_invite") {
+      return "Committee Assignment";
+    } else if (type === "event_invite") {
+      return "Speaker Invitation";
+    } else if (type === "workshop_assignment") {
+      return "Workshop Assignment";
+    } else if (type === "resource_uploaded") {
+      return "New Resource Available";
     } else if (
       type === "room_change" ||
       message.includes("Room") ||

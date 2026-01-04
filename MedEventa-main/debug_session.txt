@@ -1,1 +1,0 @@
-[2026-01-02T19:42:09.836Z] createSessionController: eventId=15, userId=17, userRole=ORGANISATEUR, id_organisateur=16, isOrganizer=false, isAdmin=true

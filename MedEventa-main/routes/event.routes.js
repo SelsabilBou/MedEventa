@@ -6,8 +6,10 @@ const {
   createEventController,
   addComiteController,
   addInviteController,
+  manageAnimateursController,
   getEventsController,
   getEventDetailsController,
+  getEventProgramController,
 } = require('../controllers/event.controller');
 
 const { verifyToken } = require('../middlewares/auth.middlewares');
@@ -52,10 +54,21 @@ router.post(
   addInviteController
 );
 
+// Gérer les animateurs
+router.post(
+  '/:eventId/manage-animateurs',
+  verifyToken,
+  requirePermission('create_event'),
+  manageAnimateursController
+);
+
 // Récupérer la liste des événements
 router.get('/', getEventsController);
 
-// Récupérer les détails d’un événement
+// Récupérer les détails d'un événement
 router.get('/:id', getEventDetailsController);
+
+// Récupérer le programme d'un événement (sessions + workshops)
+router.get('/:eventId/program', verifyToken, getEventProgramController);
 
 module.exports = router;

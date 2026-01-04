@@ -17,12 +17,9 @@ const { getUserById } = require('../models/user.model');
 const { getEventById } = require('../models/event.model');
 
 const {
-  isParticipantInscrit,
-  hasAcceptedCommunication,
-  isMembreComiteForEvent,
-  isOrganisateurForEvent,
-  isGuestSpeakerForEvent,
   isEventFinished,
+  isWorkshopFinished,
+  isWorkshopParticipant
 } = require('../utils/attestationEligibility');
 
 const AttestationService = require("../services/attestation.service");
@@ -79,7 +76,7 @@ function getUserAndEventInfo(evenementId, utilisateurId, callback) {
 }
 
 // vérifier l’éligibilité selon type demandé
-function checkEligibility(evenementId, utilisateurId, type, callback) {
+function checkEligibility(evenementId, utilisateurId, type, callback, workshopId) {
   if (type === 'participant') {
     return isParticipantInscrit(evenementId, utilisateurId, (err, ok) => {
       if (err) return callback(err);
@@ -122,6 +119,15 @@ function checkEligibility(evenementId, utilisateurId, type, callback) {
     });
   }
 
+  if (type === 'workshop') {
+    if (!workshopId) return callback(null, { ok: false, reason: 'WORKSHOP_ID_REQUIRED' });
+    return isWorkshopParticipant(workshopId, utilisateurId, (err, ok) => {
+      if (err) return callback(err);
+      if (!ok) return callback(null, { ok: false, reason: 'NOT_WORKSHOP_PARTICIPANT' });
+      return callback(null, { ok: true });
+    });
+  }
+
   return callback(null, { ok: false, reason: 'TYPE_INVALIDE' });
 }
 
@@ -138,7 +144,7 @@ function generateMyAttestation(req, res) {
   }
 
   const utilisateurId = req.user.id;
-  const { evenementId, type } = req.body;
+  const { evenementId, type, workshopId } = req.body;
 
   // 1) vérifier si attestation existe déjà
   getAttestationByUser(evenementId, utilisateurId, type, (err, existing) => {
@@ -153,18 +159,28 @@ function generateMyAttestation(req, res) {
       });
     }
 
-    // 2) vérifier que l'événement est terminé
-    isEventFinished(evenementId, (evErr, evResult) => {
-      if (evErr) {
-        return res.status(500).json({ message: 'Erreur vérification événement', error: evErr });
+    // Function helper to check finished status
+    const checkFinished = (cb) => {
+      if (type === 'workshop') {
+        if (!workshopId) return cb({ ok: false, reason: 'WORKSHOP_ID_REQUIRED' }); // Should be caught by validator?
+        isWorkshopFinished(workshopId, (err, res) => cb(err ? { error: err } : res));
+      } else {
+        isEventFinished(evenementId, (err, res) => cb(err ? { error: err } : res));
       }
-      if (!evResult.ok && evResult.reason === 'EVENT_NOT_FOUND') {
-        return res.status(404).json({ message: 'Événement introuvable' });
+    };
+
+    // 2) vérifier que l'événement/workshop est terminé
+    checkFinished((evResult) => {
+      if (evResult.error) {
+        return res.status(500).json({ message: 'Erreur vérification événement', error: evResult.error });
       }
-      if (!evResult.ok && evResult.reason === 'EVENT_NOT_FINISHED') {
+      if (!evResult.ok) {
+        if (evResult.reason === 'EVENT_NOT_FOUND' || evResult.reason === 'WORKSHOP_NOT_FOUND') {
+          return res.status(404).json({ message: 'Événement/Workshop introuvable' });
+        }
         return res.status(403).json({
-          message: 'Attestation non disponible avant la fin de l’événement',
-          reason: 'EVENT_NOT_FINISHED'
+          message: 'Attestation non disponible avant la fin',
+          reason: evResult.reason
         });
       }
 
@@ -184,13 +200,15 @@ function generateMyAttestation(req, res) {
         AttestationService.generateAttestationPdf({
           eventId: evenementId,
           userId: utilisateurId,
-          type
+          type,
+          workshopId
         })
           .then(({ pdfPath, uniqueCode }) => {
             const attData = {
               evenementId,
               utilisateurId,
               type,
+              workshopId,
               fichierPdf: pdfPath,
               uniqueCode // ⚠️ model لازم يدعمو (أو تجاهلو مؤقتاً)
             };
@@ -216,9 +234,9 @@ function generateMyAttestation(req, res) {
               error: pdfErr.message || pdfErr
             });
           });
-      });
+      }, workshopId);
     });
-  });
+  }, workshopId);
 }
 
 /**
@@ -232,10 +250,10 @@ function downloadMyAttestation(req, res) {
   }
 
   const utilisateurId = req.user.id;
-  const { evenementId, type } = req.query;
+  const { evenementId, type, workshopId } = req.query;
 
-  // 0) type validate سريع (باش ما ندخلوش للـ DB بلا لازمة)
-  const allowed = ['participant', 'communicant', 'membre_comite', 'organisateur', 'invite'];
+  // 0) type validate سريع (باش ما ندخلوش  // 0) type validate rapide
+  const allowed = ['participant', 'communicant', 'membre_comite', 'organisateur', 'invite', 'workshop'];
   if (!allowed.includes(type)) {
     return res.status(400).json({ message: 'Type invalide', reason: 'TYPE_INVALIDE' });
   }
@@ -249,17 +267,24 @@ function downloadMyAttestation(req, res) {
     // 2) إذا ماكانتش attestation → نقدر نولدها ثم نحمّلها (Phase 3)
     if (!attestation) {
       // لازم نفس شروط Phase 2
-      isEventFinished(evenementId, (evErr, evResult) => {
-        if (evErr) {
-          return res.status(500).json({ message: 'Erreur vérification événement', error: evErr });
+      // Function helper to check finished status
+      const checkFinished = (cb) => {
+        if (type === 'workshop') {
+          if (!workshopId) return cb({ ok: false, reason: 'WORKSHOP_ID_REQUIRED' });
+          isWorkshopFinished(workshopId, (err, res) => cb(err ? { error: err } : res));
+        } else {
+          isEventFinished(evenementId, (err, res) => cb(err ? { error: err } : res));
         }
-        if (!evResult.ok && evResult.reason === 'EVENT_NOT_FOUND') {
-          return res.status(404).json({ message: 'Événement introuvable' });
+      };
+
+      checkFinished((evResult) => {
+        if (evResult.error) {
+          return res.status(500).json({ message: 'Erreur vérification événement', error: evResult.error });
         }
-        if (!evResult.ok && evResult.reason === 'EVENT_NOT_FINISHED') {
+        if (!evResult.ok) {
           return res.status(403).json({
-            message: 'Attestation non disponible avant la fin de l’événement',
-            reason: 'EVENT_NOT_FINISHED'
+            message: 'Attestation non disponible avant la fin',
+            reason: evResult.reason
           });
         }
 
@@ -277,13 +302,15 @@ function downloadMyAttestation(req, res) {
           AttestationService.generateAttestationPdf({
             eventId: evenementId,
             userId: utilisateurId,
-            type
+            type,
+            workshopId
           })
             .then(({ pdfPath, uniqueCode }) => {
               const attData = {
                 evenementId,
                 utilisateurId,
                 type,
+                workshopId,
                 fichierPdf: pdfPath,
                 uniqueCode
               };
@@ -309,7 +336,7 @@ function downloadMyAttestation(req, res) {
                 error: pdfErr.message || pdfErr
               });
             });
-        });
+        }, workshopId);
       });
 
       return;
@@ -323,7 +350,7 @@ function downloadMyAttestation(req, res) {
     }
 
     return res.download(filePath, `attestation_${type}.pdf`); // téléchargement [web:222]
-  });
+  }, req.query.workshopId); // Pass workshopId for getAttestationByUser
 }
 
 /**
