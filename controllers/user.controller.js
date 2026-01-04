@@ -1,5 +1,5 @@
 // controllers/user.controller.js
-const { getUsersByRole } = require('../models/user.model');
+const { getUsersByRole, getAllUsers } = require('../models/user.model');
 
 const getUsersByRoleController = (req, res) => {
     const { role } = req.params;
@@ -28,6 +28,17 @@ const getUsersByRoleController = (req, res) => {
     });
 };
 
+const getAllUsersController = (req, res) => {
+    getAllUsers((err, users) => {
+        if (err) {
+            console.error('Error fetching all users:', err);
+            return res.status(500).json({ message: 'Erreur serveur' });
+        }
+        res.json(users);
+    });
+};
+
 module.exports = {
-    getUsersByRole: getUsersByRoleController
+    getUsersByRole: getUsersByRoleController,
+    getAllUsers: getAllUsersController
 };

@@ -16,6 +16,38 @@ const AdminEventForm = () => {
         invited_speakers: [""]
     });
 
+    const [potentialCommittee, setPotentialCommittee] = useState([]);
+    const [potentialInvites, setPotentialInvites] = useState([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
+
+    const fetchPotentialUsers = async () => {
+        setLoadingUsers(true);
+        try {
+            const token = localStorage.getItem("token");
+
+            // Fetch Potential Committee Members
+            const resComm = await fetch("/api/users/role/MEMBRE_COMITE", {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (resComm.ok) setPotentialCommittee(await resComm.json());
+
+            // Fetch Potential Invited Speakers
+            const resInvite = await fetch("/api/users/role/INVITE", {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (resInvite.ok) setPotentialInvites(await resInvite.json());
+
+        } catch (error) {
+            console.error("Error fetching users:", error);
+        } finally {
+            setLoadingUsers(false);
+        }
+    };
+
+    React.useEffect(() => {
+        fetchPotentialUsers();
+    }, []);
+
     const [notification, setNotification] = useState({ show: false, message: "", type: "" });
 
     const handleArrayChange = (field, index, value) => {
@@ -63,34 +95,43 @@ const AdminEventForm = () => {
                 const eventId = data.eventId || data.id;
 
                 // Add committee members if any
-                if (formData.scientific_committee.length > 0 && formData.scientific_committee[0] !== "") {
-                    for (const member of formData.scientific_committee) {
-                        if (member.trim()) {
-                            await fetch(`/api/events/${eventId}/add-comite`, {
-                                method: "POST",
-                                headers: {
-                                    "Authorization": `Bearer ${token}`,
-                                    "Content-Type": "application/json"
-                                },
-                                body: JSON.stringify({ nom: member })
-                            });
-                        }
+                if (formData.scientific_committee.length > 0) {
+                    const validMembers = formData.scientific_committee.filter(id => id !== "");
+                    if (validMembers.length > 0) {
+                        await fetch(`/api/events/${eventId}/add-comite`, {
+                            method: "POST",
+                            headers: {
+                                "Authorization": `Bearer ${token}`,
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({ membres: validMembers })
+                        });
                     }
                 }
 
                 // Add invited speakers if any
-                if (formData.invited_speakers.length > 0 && formData.invited_speakers[0] !== "") {
-                    for (const speaker of formData.invited_speakers) {
-                        if (speaker.trim()) {
-                            await fetch(`/api/events/${eventId}/add-invite`, {
-                                method: "POST",
-                                headers: {
-                                    "Authorization": `Bearer ${token}`,
-                                    "Content-Type": "application/json"
-                                },
-                                body: JSON.stringify({ nom: speaker })
-                            });
-                        }
+                if (formData.invited_speakers.length > 0) {
+                    const validSpeakerIds = formData.invited_speakers.filter(id => id !== "");
+                    if (validSpeakerIds.length > 0) {
+                        const speakersPayload = validSpeakerIds.map(id => {
+                            const user = potentialInvites.find(u => String(u.id) === String(id));
+                            return {
+                                nom: user.nom,
+                                prenom: user.prenom,
+                                email: user.email,
+                                sujet_conference: formData.title,
+                                utilisateur_id: user.id
+                            };
+                        });
+
+                        await fetch(`/api/events/${eventId}/add-invite`, {
+                            method: "POST",
+                            headers: {
+                                "Authorization": `Bearer ${token}`,
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({ invites: speakersPayload })
+                        });
                     }
                 }
 
@@ -189,12 +230,18 @@ const AdminEventForm = () => {
                             </div>
                             {formData.scientific_committee.map((item, index) => (
                                 <div key={index} className="dynamic-input-row">
-                                    <input
-                                        type="text"
+                                    <select
                                         value={item}
                                         onChange={(e) => handleArrayChange('scientific_committee', index, e.target.value)}
-                                        placeholder="Name, Institution"
-                                    />
+                                        style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                    >
+                                        <option value="">Select a Member (Existing Registration)</option>
+                                        {potentialCommittee.map(u => (
+                                            <option key={u.id} value={u.id}>
+                                                {u.nom} {u.prenom} ({u.institution || 'N/A'})
+                                            </option>
+                                        ))}
+                                    </select>
                                     <button type="button" onClick={() => removeArrayItem('scientific_committee', index)} className="btn-remove-item"><FiTrash2 /></button>
                                 </div>
                             ))}
@@ -207,12 +254,18 @@ const AdminEventForm = () => {
                             </div>
                             {formData.invited_speakers.map((item, index) => (
                                 <div key={index} className="dynamic-input-row">
-                                    <input
-                                        type="text"
+                                    <select
                                         value={item}
                                         onChange={(e) => handleArrayChange('invited_speakers', index, e.target.value)}
-                                        placeholder="Speaker Name"
-                                    />
+                                        style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                    >
+                                        <option value="">Select a Speaker (Existing Registration)</option>
+                                        {potentialInvites.map(u => (
+                                            <option key={u.id} value={u.id}>
+                                                {u.nom} {u.prenom} ({u.institution || 'Guest'})
+                                            </option>
+                                        ))}
+                                    </select>
                                     <button type="button" onClick={() => removeArrayItem('invited_speakers', index)} className="btn-remove-item"><FiTrash2 /></button>
                                 </div>
                             ))}

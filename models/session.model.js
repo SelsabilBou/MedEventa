@@ -56,17 +56,19 @@ const getInterventionsByUser = (userId, callback) => {
     UNION ALL
 
     SELECT 
-      s.id as session_id, s.titre as session_titre, s.horaire as session_horaire, 
-      s.salle as session_salle, s.evenement_id as evenement_id, e.titre as event_titre,
+      (c.id + 500000) as session_id,  -- Virtual ID to avoid collision
+      c.titre as session_titre,       -- Use Abstract Title as Session Title
+      CONCAT(DATE_FORMAT(e.date_debut, '%Y-%m-%d'), ' 09:00:00') as session_horaire, 
+      'Virtual Room' as session_salle, 
+      c.evenement_id as evenement_id, e.titre as event_titre,
       'speaker' as role, c.id as comm_id, c.titre as comm_titre, c.resume as comm_resume, c.type as comm_type
-    FROM session s
-    JOIN evenement e ON e.id = s.evenement_id
-    JOIN communication c ON c.session_id = s.id
-    WHERE c.auteur_id = ? OR c.presentateur_id = ?
+    FROM communication c
+    JOIN evenement e ON e.id = c.evenement_id
+    WHERE c.auteur_id = ? AND c.etat = 'acceptee' AND c.session_id IS NULL
     
     ORDER BY session_horaire ASC
   `;
-  db.query(sql, [userId, userId, userId], (err, rows) => {
+  db.query(sql, [userId, userId], (err, rows) => {
     if (err) {
       console.error('Erreur getInterventionsByUser:', err);
       return callback(err, null);
@@ -75,6 +77,7 @@ const getInterventionsByUser = (userId, callback) => {
   });
 };
 
+// Programme global d'un événement
 // Programme global d'un événement
 const getProgram = (eventId, callback) => {
   const sql = `
@@ -96,10 +99,31 @@ const getProgram = (eventId, callback) => {
     LEFT JOIN communication c
       ON c.session_id = s.id
     WHERE s.evenement_id = ?
-    ORDER BY s.horaire ASC, s.id ASC, c.id ASC
+
+    UNION ALL
+
+    SELECT
+      (c.id + 500000)    AS session_id, -- Virtual ID
+      c.titre            AS session_titre, -- Abstract Title as Session Title
+      CONCAT(DATE_FORMAT(e.date_debut, '%Y-%m-%d'), ' 09:00:00') AS session_horaire,
+      'Virtual Room'     AS session_salle,
+      NULL               AS session_president_id,
+      NULL               AS president_nom,
+      NULL               AS president_prenom,
+      c.id               AS comm_id,
+      c.titre            AS comm_titre,
+      c.type             AS comm_type,
+      c.etat             AS comm_etat
+    FROM communication c
+    JOIN evenement e ON c.evenement_id = e.id
+    WHERE c.evenement_id = ? 
+      AND c.etat = 'acceptee' 
+      AND c.session_id IS NULL
+
+    ORDER BY session_horaire ASC, session_id ASC, comm_id ASC
   `;
 
-  db.query(sql, [eventId], (err, rows) => {
+  db.query(sql, [eventId, eventId], (err, rows) => {
     if (err) {
       console.error('Erreur getProgram:', err);
       return callback(err, null);
@@ -130,10 +154,32 @@ const getDetailedProgram = (eventId, date, callback) => {
       ON c.session_id = s.id
     WHERE s.evenement_id = ?
       AND DATE(s.horaire) = ?
-    ORDER BY s.horaire ASC, s.id ASC, c.id ASC
+
+    UNION ALL
+
+    SELECT
+      (c.id + 500000)    AS session_id, -- Virtual ID
+      c.titre            AS session_titre, -- Abstract Title
+      CONCAT(DATE_FORMAT(e.date_debut, '%Y-%m-%d'), ' 09:00:00') AS session_horaire,
+      'Virtual Room'     AS session_salle,
+      NULL               AS session_president_id,
+      NULL               AS president_nom,
+      NULL               AS president_prenom,
+      c.id               AS comm_id,
+      c.titre            AS comm_titre,
+      c.type             AS comm_type,
+      c.etat             AS comm_etat
+    FROM communication c
+    JOIN evenement e ON c.evenement_id = e.id
+    WHERE c.evenement_id = ? 
+      AND c.etat = 'acceptee' 
+      AND c.session_id IS NULL
+      AND DATE(e.date_debut) = ?
+
+    ORDER BY session_horaire ASC, session_id ASC, comm_id ASC
   `;
 
-  db.query(sql, [eventId, date], (err, rows) => {
+  db.query(sql, [eventId, date, eventId, date], (err, rows) => {
     if (err) {
       console.error('Erreur getDetailedProgram:', err);
       return callback(err, null);
@@ -169,11 +215,44 @@ const updateSession = (sessionId, data, callback) => {
   );
 };
 
+const getSessionsByEvent = (eventId, callback) => {
+  const sql = `
+    SELECT s.id, s.titre, s.horaire, s.salle, s.evenement_id, s.president_id, u.nom AS president_nom, u.prenom AS president_prenom
+    FROM session s
+    LEFT JOIN utilisateur u ON u.id = s.president_id
+    WHERE s.evenement_id = ?
+
+    UNION ALL
+
+    SELECT 
+      (c.id + 500000) AS id, -- Virtual ID
+      c.titre         AS titre, -- Abstract Title
+      CONCAT(DATE_FORMAT(e.date_debut, '%Y-%m-%d'), ' 09:00:00') AS horaire,
+      'Virtual Room'  AS salle,
+      c.evenement_id  AS evenement_id,
+      NULL            AS president_id,
+      NULL            AS president_nom,
+      NULL            AS president_prenom
+    FROM communication c
+    JOIN evenement e ON e.id = c.evenement_id
+    WHERE c.evenement_id = ? 
+      AND c.etat = 'acceptee' 
+      AND c.session_id IS NULL
+
+    ORDER BY horaire ASC
+  `;
+  db.query(sql, [eventId, eventId], (err, rows) => {
+    if (err) return callback(err);
+    callback(null, rows);
+  });
+};
+
 module.exports = {
   createSession,
   assignCommunication,
   getProgram,
   getDetailedProgram,
   updateSession,
-  getInterventionsByUser
+  getInterventionsByUser,
+  getSessionsByEvent
 };

@@ -32,4 +32,12 @@ const getMessagesForUser = (userId, limit = 20) => {
   });
 };
 
-module.exports = { createMessage, getMessagesForUser };
+const markMessageAsRead = (messageId, userId, callback) => {
+  const sql = `UPDATE message_interne SET lu = 1 WHERE id = ? AND destinataire_id = ?`;
+  db.query(sql, [messageId, userId], (err, result) => {
+    if (err) return callback(err);
+    callback(null, result.affectedRows > 0);
+  });
+};
+
+module.exports = { createMessage, getMessagesForUser, markMessageAsRead };

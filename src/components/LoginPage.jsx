@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import "./Login.css";
-import axios from "axios";
+import api from "../api/axios";
 import { auth, googleProvider } from "./firebase";
 import { signInWithPopup } from "firebase/auth";
 import { FaGoogle, FaEye, FaEyeSlash } from "react-icons/fa";
@@ -54,7 +54,7 @@ function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post("/api/auth/login", {
+      const response = await api.post("/api/auth/login", {
         email,
         mot_de_passe: password,
       });
@@ -87,7 +87,7 @@ function LoginPage() {
       const user = result.user;
 
       // Sync with backend to get proper JWT token
-      const response = await axios.post("/api/auth/social-login", {
+      const response = await api.post("/api/auth/social-login", {
         email: user.email,
         nom: user.displayName?.split(" ")[1] || "",
         prenom: user.displayName?.split(" ")[0] || user.email.split("@")[0],

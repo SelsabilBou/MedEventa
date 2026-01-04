@@ -110,7 +110,17 @@ const Messages = () => {
   // Fetch users for recipient selection
   const fetchUsers = async (eventId = null) => {
     if (!eventId) {
-      setUsers([]);
+      // Fetch ALL users if no event selected
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get("/api/users", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUsers(response.data || []);
+      } catch (error) {
+        console.error("Error fetching all users:", error);
+        setUsers([]);
+      }
       return;
     }
 

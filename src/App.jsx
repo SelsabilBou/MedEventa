@@ -1,6 +1,6 @@
 // src/App.jsx
 import React, { useState, useRef, useEffect } from "react";
-import axios from "axios";
+import api from "./api/axios";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import { FaExclamationTriangle } from "react-icons/fa";
 import "./App.css";
@@ -128,7 +128,7 @@ function SignupFlow() {
       try {
         // Send verification code
         const trimmedEmail = formData.email ? formData.email.trim() : "";
-        await axios.post("/api/auth/send-code", { email: trimmedEmail });
+        await api.post("/api/auth/send-code", { email: trimmedEmail });
         nextStep();
       } catch (error) {
         console.error("Failed to send code", error);
@@ -152,7 +152,7 @@ function SignupFlow() {
       try {
         const trimmedEmail = formData.email ? formData.email.trim() : "";
         const trimmedCode = formData.code ? formData.code.trim() : "";
-        await axios.post("/api/auth/verify-code", {
+        await api.post("/api/auth/verify-code", {
           email: trimmedEmail,
           code: trimmedCode,
         });
@@ -200,14 +200,14 @@ function SignupFlow() {
       };
 
       // 2. Send to backend as JSON
-      const response = await axios.post("/api/auth/register", registerData, {
+      const response = await api.post("/api/auth/register", registerData, {
         headers: { "Content-Type": "application/json" },
       });
 
       if (response.status === 201 || response.status === 200) {
         // 3. Auto-login since backend register doesn't return token
         try {
-          const loginRes = await axios.post("/api/auth/login", {
+          const loginRes = await api.post("/api/auth/login", {
             email: formData.email,
             mot_de_passe: formData.password,
           });
@@ -317,9 +317,7 @@ function App() {
     const fetchRegistrations = async () => {
       if (!user?.id || !token) return;
       try {
-        const response = await axios.get("/api/inscriptions/my-registrations", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await api.get("/api/inscriptions/my-registrations");
         setRegistrations(response.data.registrations || []);
       } catch (err) {
         console.error("Error fetching registrations:", err);
@@ -495,7 +493,7 @@ function App() {
       <Route
         path="/workshop-manager/dashboard"
         element={
-          <ProtectedRoute allowedRoles={["RESP_WORKSHOP", "SUPER_ADMIN"]}>
+          <ProtectedRoute allowedRoles={["RESP_WORKSHOP", "SUPER_ADMIN", "ORGANISATEUR"]}>
             <WorkshopManagerDashboard />
           </ProtectedRoute>
         }

@@ -1,7 +1,7 @@
 // controllers/survey.controller.js
 const { validationResult } = require('express-validator');
 const db = require('../db');
-const { createSurvey, submitResponse, getSurveyResults } = require('../models/survey.model');
+const { createSurvey, submitResponse, getSurveyResults, getSurveysByEvent } = require('../models/survey.model');
 
 const checkEventOrganizer = (eventId, userId, callback) => {
   const sql = `
@@ -25,7 +25,18 @@ const createSurveyController = (req, res) => {
 
   const eventId = parseInt(req.params.eventId, 10);
   const userId = req.user.id;
-  const { title, questions } = req.body;
+
+  // Accept both 'titre' (from frontend) and 'title'
+  const title = req.body.titre || req.body.title;
+  const description = req.body.description;
+
+  // Convert question objects [{question: "...", type: "..."}] to simple strings
+  const questions = req.body.questions.map(q => {
+    // If it's already a string, use it as is
+    if (typeof q === 'string') return q;
+    // If it's an object, extract the question text
+    return q.question || q;
+  });
 
   if (isNaN(eventId)) {
     return res.status(400).json({ message: 'eventId invalide' });
@@ -41,7 +52,7 @@ const createSurveyController = (req, res) => {
       return res.status(403).json({ message: 'Vous n’êtes pas l’organisateur de cet événement' });
     }
 
-    createSurvey(eventId, { title, questions }, (createErr, result) => {
+    createSurvey(eventId, { title, description, questions }, (createErr, result) => {
       if (createErr) {
         console.error(createErr);
         return res.status(500).json({ message: 'Erreur lors de la création du sondage' });
@@ -122,8 +133,28 @@ const getSurveyResultsController = (req, res) => {
     });
   });
 }
+
+// GET /api/events/:eventId/surveys - List all surveys for an event
+const getSurveysByEventController = (req, res) => {
+  const eventId = parseInt(req.params.eventId, 10);
+
+  if (isNaN(eventId)) {
+    return res.status(400).json({ message: 'eventId invalide' });
+  }
+
+  getSurveysByEvent(eventId, (err, surveys) => {
+    if (err) {
+      console.error('Error fetching surveys:', err);
+      return res.status(500).json({ message: 'Erreur lors de la récupération des sondages' });
+    }
+
+    return res.status(200).json(surveys || []);
+  });
+};
+
 module.exports = {
   createSurveyController,
   submitResponseController,
   getSurveyResultsController,
+  getSurveysByEventController,
 };

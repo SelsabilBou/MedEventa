@@ -54,6 +54,25 @@ const addSupportController = (req, res) => {
 
       return addSupport(workshopId, { type: finalType, url: storedPath, titre: titre || req.file.originalname }, (err2, supportId) => {
         if (err2) return res.status(500).json({ message: 'Erreur serveur', error: err2.message });
+
+        // Send notifications to all workshop participants
+        const { listWorkshopRegistrations } = require('../models/workshopRegistration.model');
+        const { createNotification } = require('../models/notification.model');
+
+        listWorkshopRegistrations(workshopId, (err3, participants) => {
+          if (!err3 && participants && participants.length > 0) {
+            const resourceTitle = titre || req.file.originalname;
+            participants.forEach(p => {
+              createNotification(
+                p.participant_id,
+                workshop.evenement_id,
+                'resource_uploaded',
+                `Nouveau document disponible: ${resourceTitle}`
+              ).catch(nErr => console.error("Notification resource upload error:", nErr));
+            });
+          }
+        });
+
         return res.status(201).json({ message: 'Fichier ajouté', supportId, url: storedPath });
       });
     }

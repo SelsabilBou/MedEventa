@@ -305,9 +305,9 @@ const unregisterFromWorkshop = (workshopId, userId, callback) => {
 
 const listWorkshopRegistrations = (workshopId, callback) => {
   const sql = `
-    SELECT i.*, i.id AS inscription_id, i.utilisateur_id AS participant_id, u.nom, u.prenom, u.email
+    SELECT i.*, i.id AS inscription_id, i.participant_id, u.nom, u.prenom, u.email
     FROM inscription_workshop i
-    JOIN utilisateur u ON u.id = i.utilisateur_id
+    JOIN utilisateur u ON u.id = i.participant_id
     WHERE i.workshop_id = ?
     ORDER BY u.nom ASC, u.prenom ASC
   `;

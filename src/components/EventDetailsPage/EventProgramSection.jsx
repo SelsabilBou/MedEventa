@@ -97,7 +97,7 @@ const EventProgramSection = ({
             </div>
             {filteredConferences.length > 0 ? (
               filteredConferences.map((c) => (
-                <div key={c.id} className="ed-detailed-session">
+                <div key={`conference-${c.id}`} className="ed-detailed-session">
                   <div className="ed-session-time-badge">{c.time}</div>
                   <div className="ed-session-content">
                     <h4>{c.title}</h4>
@@ -136,7 +136,7 @@ const EventProgramSection = ({
             {filteredWorkshops.length > 0 ? (
               filteredWorkshops.map((w) => (
                 <div
-                  key={w.id}
+                  key={`workshop-${w.id}`}
                   className="ed-detailed-session with-registration"
                 >
                   <div className="ed-session-time-badge">{w.time}</div>
@@ -204,7 +204,7 @@ const EventProgramSection = ({
             {filteredSessions.length > 0 ? (
               filteredSessions.map((s) => (
                 <div
-                  key={s.id}
+                  key={`session-${s.id}`}
                   className="ed-detailed-session with-registration"
                 >
                   <div className="ed-session-time-badge">{s.time}</div>

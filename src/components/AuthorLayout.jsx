@@ -97,9 +97,11 @@ const AuthorLayout = ({ children }) => {
       <nav className={`dashboard-sidebar ${mobileMenuOpen ? "mobile-open" : ""}`}>
         <div className="dashboard-sidebar-header">
           <div className="dashboard-user-info">
-            <div className="dashboard-user-avatar">{user?.name?.charAt(0) || "C"}</div>
+            <div className="dashboard-user-avatar">{(user?.prenom || user?.name || "C").charAt(0)}</div>
             <div className="dashboard-user-details">
-              <span className="dashboard-user-name">{user?.name || "Communicant"}</span>
+              <span className="dashboard-user-name">
+                {user?.prenom ? `${user.prenom} ${user.nom || ""}` : (user?.name || "Communicant")}
+              </span>
               <span className="dashboard-user-role">Communicant</span>
             </div>
           </div>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import AuthorLayout from "./AuthorLayout";
 import "./AuthorProgramme.css";
-import { FiCoffee, FiEdit2, FiEye, FiX, FiUser } from "react-icons/fi";
-import axios from "axios";
+import { FiCoffee, FiEdit2, FiEye, FiX, FiUser, FiFileText, FiPlus } from "react-icons/fi";
+import api from "../api/axios";
 
 const AuthorProgramme = () => {
     const rawUser = localStorage.getItem("user");
@@ -26,17 +26,38 @@ const AuthorProgramme = () => {
             setLoading(true);
             try {
                 // 1. Fetch Events
-                const eventsRes = await axios.get("/api/events", {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const eventsRes = await api.get("/api/events");
                 const fetchedEvents = eventsRes.data || [];
                 setEvents(fetchedEvents);
 
-                if (fetchedEvents.length > 0) {
-                    const firstEvent = fetchedEvents[0];
-                    setSelectedEventId(firstEvent.id);
-                    await fetchProgram(firstEvent.id);
+                // 2. Fetch My Interventions
+                const programRes = await api.get("/api/my-interventions");
+                const myInterventions = programRes.data || [];
+
+                let eventToSelect = "";
+
+                if (myInterventions.length > 0) {
+                    // Find the first event ID from interventions that exists in fetchedEvents
+                    // (Just in case the intervention is for an archived/hidden event)
+                    const distinctEventIds = [...new Set(myInterventions.map(i => i.evenement_id))];
+
+                    // Prefer the event matching the first intervention found
+                    eventToSelect = distinctEventIds[0];
                 }
+
+                if (!eventToSelect && fetchedEvents.length > 0) {
+                    eventToSelect = fetchedEvents[0].id;
+                }
+
+                if (eventToSelect) {
+                    setSelectedEventId(eventToSelect);
+                    // We already fetched the data, but the existing processProgram/filter logic depends on state or re-run
+                    // To keep it simple, we'll process the data we just got
+                    processProgram(myInterventions, eventToSelect);
+                } else {
+                    setSchedule([]);
+                }
+
             } catch (err) {
                 console.error("Failed to load initial data", err);
             } finally {
@@ -46,58 +67,59 @@ const AuthorProgramme = () => {
         loadInitialData();
     }, [token]);
 
+    const processProgram = (allInterventions, eventId) => {
+        if (!allInterventions) return;
+
+        // Filter by the selected event
+        const myItems = allInterventions.filter(item =>
+            item.evenement_id?.toString() === eventId.toString()
+        );
+
+        // Map results to schedule format
+        const mappedSchedule = myItems.map(item => {
+            const isSpeaker = item.role === 'speaker' || item.comm_id !== null;
+            const presentations = isSpeaker ? [{
+                id: item.comm_id,
+                title: item.comm_titre || item.titre,
+                authors: "You (Presenter)",
+                affiliation: "",
+                isMyPresentation: true,
+                abstractText: item.comm_resume || item.resume || "",
+                type: item.comm_type || item.type
+            }] : [];
+
+            return {
+                id: item.session_id || `unscheduled-${item.comm_id}`,
+                time: item.session_horaire || "TBA",
+                title: item.session_titre || (item.comm_titre || "Unscheduled Presentation"),
+                room: item.session_salle || "Pending Room Allocation",
+                type: item.session_id ? "session" : "unscheduled",
+                role: item.role || 'speaker',
+                presentations
+            };
+        });
+
+        // Sort by time
+        mappedSchedule.sort((a, b) => {
+            if (a.time === "TBA") return 1;
+            if (b.time === "TBA") return -1;
+            return a.time.localeCompare(b.time);
+        });
+
+        setSchedule(mappedSchedule);
+    };
+
     const fetchProgram = async (eventId) => {
         try {
-            // THE PROGRAMME HERE SHOULD BE THE AUTHOR'S PROGRAMME ONLY HIS
-            const res = await axios.get("/api/my-interventions", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            if (res.data) {
-                // Filter by the selected event
-                const myItems = res.data.filter(item =>
-                    item.evenement_id?.toString() === eventId.toString() ||
-                    item.session_evenement_id?.toString() === eventId.toString()
-                );
-
-                // Map results to schedule format
-                const mappedSchedule = myItems.map(item => {
-                    const isSpeaker = item.role === 'speaker' || item.comm_id !== null;
-                    const presentations = isSpeaker ? [{
-                        id: item.comm_id,
-                        title: item.comm_titre || item.titre,
-                        authors: "You (Presenter)",
-                        affiliation: "",
-                        isMyPresentation: true,
-                        abstractText: item.comm_resume || item.resume || "",
-                        type: item.comm_type || item.type
-                    }] : [];
-
-                    return {
-                        id: item.session_id || item.id,
-                        time: item.session_horaire || item.horaire || "TBA",
-                        title: item.session_titre || item.titre || "Unnamed Session",
-                        room: item.session_salle || item.salle || "TBA",
-                        type: "session",
-                        role: item.role || (item.comm_id ? 'speaker' : 'chair'),
-                        presentations
-                    };
-                });
-
-                // Sort by time
-                mappedSchedule.sort((a, b) => {
-                    if (a.time === "TBA") return 1;
-                    if (b.time === "TBA") return -1;
-                    return a.time.localeCompare(b.time);
-                });
-
-                setSchedule(mappedSchedule);
-            }
+            const res = await api.get("/api/my-interventions");
+            processProgram(res.data, eventId);
         } catch (err) {
             console.error("Failed to fetch personal program", err);
             setSchedule([]);
         }
     };
+
+
 
     const handleEventChange = (e) => {
         const id = e.target.value;
@@ -123,9 +145,8 @@ const AuthorProgramme = () => {
         e.preventDefault();
         try {
             // Call real backend API to update
-            await axios.put(`/api/events/submissions/${selectedPresentation.id}`,
-                { titre: editForm.title, resume: editForm.abstract },
-                { headers: { Authorization: `Bearer ${token}` } }
+            await api.put(`/api/events/submissions/${selectedPresentation.id}`,
+                { titre: editForm.title, resume: editForm.abstract }
             );
 
             // Update local state for immediate feedback
@@ -189,8 +210,12 @@ const AuthorProgramme = () => {
                 {loading ? (
                     <p>Loading your schedule...</p>
                 ) : schedule.length === 0 ? (
-                    <div className="ap-no-data" style={{ textAlign: 'center', padding: '3rem', background: '#f8fafc', borderRadius: '12px', color: '#64748b' }}>
+                    <div className="ap-no-data">
+                        <FiFileText size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
                         <p>You have no scheduled interventions for this event.</p>
+                        <button className="btn-primary-ns" onClick={() => navigate("/author/new-submission")}>
+                            <FiPlus /> Submit New Abstract
+                        </button>
                     </div>
                 ) : (
                     <div className="ap-timeline">
@@ -198,7 +223,11 @@ const AuthorProgramme = () => {
                             <div key={item.id} className="ap-timeline-item">
                                 <div className="ap-time-marker"></div>
                                 <span className="ap-time-label">
-                                    {item.time.includes('T') ? new Date(item.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : item.time}
+                                    {item.time === 'TBA' ? 'TBA' : (
+                                        !isNaN(new Date(item.time).getTime())
+                                            ? new Date(item.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                            : item.time
+                                    )}
                                 </span>
 
                                 <div className="ap-session-card">
@@ -303,30 +332,6 @@ const AuthorProgramme = () => {
                     </div>
                 )}
             </div>
-            <style>{`
-                .ap-header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
-                .ap-event-selector { display: flex; align-items: center; gap: 0.5rem; background: #f8fafc; padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #e2e8f0; }
-                .ap-event-selector label { font-weight: 600; color: #64748b; font-size: 0.9rem; }
-                .ap-select { padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid #cbd5e1; background: white; color: #1e293b; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
-                .ap-select:focus { border-color: #0f9d8a; }
-                .ap-actions { display: flex; align-items: center; }
-                .ap-view-btn { display: flex; align-items: center; gap: 4px; border: 1px solid #12324a; background: white; color: #12324a; padding: 4px 12px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
-                .ap-view-btn:hover { background: #12324a; color: white; }
-                .ap-edit-btn { display: flex; align-items: center; gap: 4px; border: 1px solid #0f9d8a; background: white; color: #0f9d8a; padding: 4px 12px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
-                .ap-edit-btn:hover { background: #0f9d8a; color: white; }
-                .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-                .modal-content { background: white; padding: 2rem; border-radius: 8px; width: 90%; max-width: 600px; position: relative; max-height: 90vh; overflow-y: auto; }
-                .modal-close { position: absolute; top: 1rem; right: 1rem; border: none; background: none; font-size: 1.5rem; cursor: pointer; }
-                .ap-timeline-item { position: relative; padding-left: 2rem; border-left: 2px solid #e2e8f0; margin-bottom: 2rem; }
-                .ap-time-marker { position: absolute; left: -9px; top: 0; width: 16px; height: 16px; border-radius: 50%; background: #0f9d8a; border: 3px solid white; }
-                .ap-time-label { display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem; }
-                .ap-session-card { background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-                .ap-session-title { color: #12324a; font-size: 1.25rem; margin-bottom: 0.25rem; }
-                .ap-session-meta { color: #64748b; font-size: 0.9rem; margin-bottom: 1.5rem; display: flex; gap: 1rem; }
-                .ap-abstract-box { background: #f8fafc; padding: 1rem; border-radius: 8px; border-left: 4px solid #0f9d8a; display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; }
-                .ap-abstract-title { font-weight: 600; color: #1e293b; margin-bottom: 0.25rem; }
-                .ap-authors { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #64748b; }
-            `}</style>
         </AuthorLayout>
     );
 };

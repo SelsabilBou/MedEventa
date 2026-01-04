@@ -1,6 +1,6 @@
 const { validationResult } = require('express-validator');
 const { createMessage, getMessagesForUser } = require('../models/message.model');
-const { getNotificationsForUser, getUnreadCountForUser } = require('../models/notification.model');
+const { getNotificationsForUser, getUnreadCountForUser, createNotification } = require('../models/notification.model');
 // POST /api/messages/send
 const sendMessage = async (req, res) => {
   try {
@@ -18,6 +18,14 @@ const sendMessage = async (req, res) => {
       evenement_id || null,
       contenu,
       type || 'notif'
+    );
+
+    // Créer une notification pour le destinataire
+    await createNotification(
+      destinataire_id,
+      evenement_id || null,
+      'new_message',
+      'Vous avez reçu un nouveau message'
     );
 
     return res.status(201).json({
@@ -88,7 +96,7 @@ const sendWorkshopBroadcast = async (req, res) => {
       // Envoyer un message à chaque participant
       const promises = participants.map(p => createMessage(
         expediteur_id,
-        p.utilisateur_id,
+        p.participant_id,
         evenement_id || null,
         contenu,
         'notif'
@@ -106,4 +114,22 @@ const sendWorkshopBroadcast = async (req, res) => {
   }
 };
 
-module.exports = { sendMessage, getMessages, getDashboardActivity, sendWorkshopBroadcast };
+// PUT /api/messages/:id/read
+const markAsReadController = (req, res) => {
+  const messageId = req.params.id;
+  const userId = req.user.id;
+  const { markMessageAsRead } = require('../models/message.model');
+
+  markMessageAsRead(messageId, userId, (err, success) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Erreur serveur' });
+    }
+    if (!success) {
+      return res.status(404).json({ message: 'Message non trouvé ou non autorisé' });
+    }
+    return res.status(200).json({ message: 'Message marqué comme lu' });
+  });
+};
+
+module.exports = { sendMessage, getMessages, getDashboardActivity, sendWorkshopBroadcast, markAsReadController };

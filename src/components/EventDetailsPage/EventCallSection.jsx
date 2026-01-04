@@ -7,20 +7,62 @@ import {
   FaSpinner,
   FaFilePdf,
   FaInfoCircle,
+  FaChevronDown,
 } from "react-icons/fa";
 
-const EventCallSection = ({
-  callForPapers,
-  showSubmissionForm,
-  setShowSubmissionForm,
-  submissionSuccess,
-  submissionError,
-  submissionForm,
-  handleSubmissionChange,
-  handleSubmitSubmission,
-  loading,
-  isAuthor = false,
-}) => {
+const EventCallSection = (props) => {
+  const {
+    callForPapers,
+    showSubmissionForm,
+    setShowSubmissionForm,
+    submissionSuccess,
+    submissionError,
+    submissionForm,
+    handleSubmissionChange,
+    handleSubmitSubmission,
+    loading,
+    isAuthor = false,
+    allUsers = [],
+  } = props;
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [showAuthorList, setShowAuthorList] = React.useState(false);
+
+  const filteredUsers = allUsers.filter(u =>
+    u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleAuthorSelect = (user) => {
+    const currentAuthors = submissionForm.authors ? submissionForm.authors.split(", ").filter(a => a) : [];
+    if (!currentAuthors.includes(user.name)) {
+      const newAuthors = [...currentAuthors, user.name].join(", ");
+      handleSubmissionChange({ target: { name: "authors", value: newAuthors } });
+    }
+    setSearchTerm("");
+    setShowAuthorList(false);
+  };
+
+  const removeAuthor = (authorName) => {
+    const newAuthors = submissionForm.authors
+      .split(", ")
+      .filter(a => a !== authorName)
+      .join(", ");
+    handleSubmissionChange({ target: { name: "authors", value: newAuthors } });
+  };
+
+  const dropdownRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowAuthorList(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
   return (
     <div className="ed-section-content">
       {/* Call for Communications Section */}
@@ -172,15 +214,92 @@ const EventCallSection = ({
                     <label>
                       Authors <span className="ed-required">*</span>
                     </label>
-                    <input
-                      type="text"
-                      name="authors"
-                      value={submissionForm.authors}
-                      onChange={handleSubmissionChange}
-                      placeholder="List all authors separated by commas"
-                      required
-                      disabled={loading}
-                    />
+                    <div className="ed-author-select-container" style={{ position: "relative" }} ref={dropdownRef}>
+                      <div style={{ position: "relative" }}>
+                        <input
+                          type="text"
+                          placeholder="Search or choose authors from database..."
+                          value={searchTerm}
+                          onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setShowAuthorList(true);
+                          }}
+                          onFocus={() => setShowAuthorList(true)}
+                          disabled={loading}
+                          autoComplete="off"
+                          style={{ paddingRight: "30px" }}
+                        />
+                        <FaChevronDown
+                          style={{
+                            position: "absolute",
+                            right: "10px",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            color: "#999",
+                            pointerEvents: "none"
+                          }}
+                        />
+                      </div>
+
+                      {showAuthorList && (
+                        <div className="ed-author-dropdown" style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          right: 0,
+                          backgroundColor: "white",
+                          boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                          borderRadius: "4px",
+                          zIndex: 1000,
+                          maxHeight: "200px",
+                          overflowY: "auto"
+                        }}>
+                          {filteredUsers.length > 0 ? (
+                            filteredUsers.map(user => (
+                              <div
+                                key={user.id}
+                                className="ed-author-option"
+                                onClick={() => handleAuthorSelect(user)}
+                                style={{
+                                  padding: "8px 12px",
+                                  cursor: "pointer",
+                                  borderBottom: "1px solid #f0f0f0"
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = "#f5f5f5"}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = "transparent"}
+                              >
+                                {user.name} ({user.email})
+                              </div>
+                            ))
+                          ) : (
+                            <div style={{ padding: "8px 12px", color: "#999" }}>No authors found</div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="ed-selected-authors" style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
+                        {submissionForm.authors && submissionForm.authors.split(", ").filter(a => a).map((author, idx) => (
+                          <span key={idx} className="ed-author-chip" style={{
+                            backgroundColor: "#e3f2fd",
+                            color: "#1976d2",
+                            padding: "4px 8px",
+                            borderRadius: "16px",
+                            fontSize: "0.85rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px"
+                          }}>
+                            {author}
+                            <FaTimes
+                              style={{ cursor: "pointer", fontSize: "0.7rem" }}
+                              onClick={() => removeAuthor(author)}
+                            />
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Removed mandatory message as requested */}
+                    </div>
                   </div>
 
                   <div className="ed-form-group">

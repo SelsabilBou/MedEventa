@@ -9,7 +9,7 @@ import {
     FiFileText,
     FiPlus
 } from "react-icons/fi";
-import axios from "axios";
+import api from "../api/axios";
 
 const AuthorDashboard = () => {
     const navigate = useNavigate();
@@ -31,8 +31,8 @@ const AuthorDashboard = () => {
                 setLoading(true);
                 if (token) {
                     const [statsRes, subsRes] = await Promise.all([
-                        axios.get("/api/author/stats", { headers: { Authorization: `Bearer ${token}` } }),
-                        axios.get("/api/author/submissions", { headers: { Authorization: `Bearer ${token}` } })
+                        api.get("/api/author/stats"),
+                        api.get("/api/author/submissions")
                     ]);
                     setStats(statsRes.data);
                     setSubmissions(subsRes.data);
@@ -73,7 +73,7 @@ const AuthorDashboard = () => {
             <div className="ad-inner">
                 <header className="ad-header">
                     <div>
-                        <h1>Welcome back{user?.name ? `, ${user.name.split(" ")[0]}` : ""}</h1>
+                        <h1>Welcome back{user?.prenom ? `, ${user.prenom}` : ""}</h1>
                         <p>Manage your scientific communications and event participation.</p>
                     </div>
                     <button className="pd-btn" onClick={handleNewSubmission} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>

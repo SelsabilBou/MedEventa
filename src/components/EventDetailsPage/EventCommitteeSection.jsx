@@ -6,10 +6,14 @@ const EventCommitteeSection = ({ committeeMembers }) => {
     <div className="ed-section-content">
       <h3 className="ed-section-subtitle">Scientific Committee</h3>
       <div className="ed-committee-grid">
-        {committeeMembers.map((member) => (
-          <div key={member.id} className="ed-committee-card">
+        {committeeMembers.map((member, index) => (
+          <div key={`${member.id}-${index}`} className="ed-committee-card">
             <div className="ed-committee-avatar">
-              <FaUserTie />
+              {member.photo ? (
+                <img src={member.photo} alt={member.name} className="ed-committee-img" />
+              ) : (
+                <FaUserTie />
+              )}
             </div>
             <h4>{member.name}</h4>
             <p className="ed-committee-role">{member.role}</p>

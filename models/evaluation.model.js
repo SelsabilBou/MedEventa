@@ -213,9 +213,11 @@ const listEvaluationsModel = ({ page, limit, eventId, search }, callback) => {
   }
 
   const sql = `
-    SELECT e.*, c.titre AS communication_titre
+    SELECT e.*, c.titre AS communication_titre, u.nom AS evaluateur_nom, u.prenom AS evaluateur_prenom
     FROM evaluation e
     JOIN communication c ON e.communication_id = c.id
+    JOIN membre_comite mc ON e.membre_comite_id = mc.id
+    JOIN utilisateur u ON mc.utilisateur_id = u.id
     ${where}
     ORDER BY e.date_evaluation DESC
     LIMIT ? OFFSET ?
@@ -295,15 +297,14 @@ const getAssignmentsByUser = (userId, callback) => {
       c.type,
       c.evenement_id,
       c.auteur_id, 
-      u.nom as auteur_principal, 
-      e.created_at
+      u.nom as auteur_principal
     FROM evaluation e
     JOIN communication c ON c.id = e.communication_id
     JOIN membre_comite mc ON mc.id = e.membre_comite_id
     LEFT JOIN utilisateur u ON u.id = c.auteur_id
     WHERE mc.utilisateur_id = ?
     -- Showing all assignments, frontend filters if needed
-    ORDER BY e.created_at DESC
+    ORDER BY e.id DESC
   `;
   db.query(sql, [userId], (err, rows) => {
     if (err) return callback(err);

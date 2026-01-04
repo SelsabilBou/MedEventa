@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { validationResult } = require('express-validator');
 const { createSession, assignCommunication, getProgram, getDetailedProgram, updateSession, } = require('../models/session.model');
+const { createNotification } = require('../models/notification.model');
 
 const logSession = (message) => {
     const logFile = path.join(__dirname, '../debug_session.txt');
@@ -60,6 +61,11 @@ const createSessionController = (req, res) => {
                 console.error('Error creating session:', err2);
                 return res.status(500).json({ message: 'Erreur création session' });
             }
+
+            // Send notification to Organizer
+            createNotification(userId, eventId, 'session_created', `Votre session "${titre}" a été créée avec succès.`)
+                .catch(nErr => console.error("Notification Session creation error:", nErr));
+
             res.status(201).json({
                 message: 'Session créée avec succès',
                 eventId: Number(eventId),
