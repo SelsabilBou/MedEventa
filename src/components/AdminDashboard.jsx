@@ -18,6 +18,7 @@ const AdminDashboard = () => {
     const [selectedEventId, setSelectedEventId] = useState("");
     const [recentSubmissions, setRecentSubmissions] = useState([]);
     const [recentProgramme, setRecentProgramme] = useState([]);
+    const [recentParticipants, setRecentParticipants] = useState([]);
     const [eventWorkshops, setEventWorkshops] = useState([]); // All workshops for the selected event
     const [loading, setLoading] = useState(true);
 
@@ -56,6 +57,7 @@ const AdminDashboard = () => {
             fetchStats();
             fetchRecentSubmissions();
             fetchRecentProgramme();
+            fetchRecentParticipants();
             fetchCurrentAssignments(selectedEventId);
         }
     }, [selectedEventId]);
@@ -326,7 +328,9 @@ const AdminDashboard = () => {
                 const eventList = Array.isArray(data) ? data : (data.events || []);
                 setEvents(eventList);
                 if (eventList.length > 0) {
-                    setSelectedEventId(eventList[0].id);
+                    // Try to find an event that is actually happening or has a name
+                    const bestDefault = eventList.find(e => e.date_debut) || eventList[0];
+                    setSelectedEventId(bestDefault.id);
                 } else {
                     setLoading(false);
                 }
@@ -357,7 +361,7 @@ const AdminDashboard = () => {
                     acceptanceRate: data.acceptanceRate?.rate || 0,
                     checkInsToday: 0,
                     upcomingEvents: events.length || 0,
-                    totalParticipants: data.participantsByCountry?.reduce((sum, p) => sum + (p.count || 0), 0) || 0,
+                    totalParticipants: data.participantsByCountry?.reduce((sum, p) => sum + (p.total || 0), 0) || 0,
                     totalRevenue: 0
                 });
             }
@@ -417,6 +421,22 @@ const AdminDashboard = () => {
         }
     };
 
+    const fetchRecentParticipants = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`/api/inscriptions/event/${selectedEventId}/participants`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const recent = (data.participants || []).slice(0, 5);
+                setRecentParticipants(recent);
+            }
+        } catch (error) {
+            console.error("Error fetching recent participants:", error);
+        }
+    };
+
     const statsData = [
         { label: "Total Submissions", value: loading ? "..." : stats.totalSubmissions.toString(), icon: <FiClipboard />, color: "#0f9d8a" },
         { label: "Acceptance Rate", value: loading ? "..." : `${stats.acceptanceRate}%`, icon: <FiCheckCircle />, color: "#1a5c8a" },
@@ -426,12 +446,17 @@ const AdminDashboard = () => {
 
     const getStatusBadge = (status) => {
         const badges = {
+            en_attente: { text: "Pending", class: "status-pending" },
+            acceptee: { text: "Accepted", class: "status-accepted" },
+            refusee: { text: "Rejected", class: "status-rejected" },
+            en_revision: { text: "Revision", class: "status-revision" },
+            // Legacy/Fallback
             pending: { text: "Pending", class: "status-pending" },
             accepted: { text: "Accepted", class: "status-accepted" },
             rejected: { text: "Rejected", class: "status-rejected" },
             revision: { text: "Revision", class: "status-revision" }
         };
-        return badges[status] || badges.pending;
+        return badges[status] || badges.en_attente;
     };
 
     return (
@@ -495,7 +520,7 @@ const AdminDashboard = () => {
                                 <div className="stat-icon" style={{ backgroundColor: `${statsData[0].color}15`, color: statsData[0].color }}>{statsData[0].icon}</div>
                                 <div className="stat-info"><h3>{statsData[0].value}</h3><p>{statsData[0].label}</p></div>
                             </div>
-                            <div className="admin-stat-card">
+                            <div className="admin-stat-card" onClick={() => navigate('/admin/evaluations', { state: { eventId: selectedEventId } })} style={{ cursor: 'pointer' }}>
                                 <div className="stat-icon" style={{ backgroundColor: `${statsData[1].color}15`, color: statsData[1].color }}>{statsData[1].icon}</div>
                                 <div className="stat-info"><h3>{statsData[1].value}</h3><p>{statsData[1].label}</p></div>
                             </div>
@@ -514,14 +539,20 @@ const AdminDashboard = () => {
                                 {recentSubmissions.length > 0 ? (
                                     <div className="submissions-list">
                                         {recentSubmissions.map((submission) => (
-                                            <div key={submission.id} className="submission-item">
+                                            <div
+                                                key={submission.id}
+                                                className="submission-item"
+                                                onClick={() => navigate('/admin/submissions', { state: { eventId: selectedEventId, search: submission.titre } })}
+                                                style={{ cursor: 'pointer' }}
+                                            >
                                                 <div className="submission-info">
                                                     <h4>{submission.titre}</h4>
-                                                    <p className="submission-author">by {submission.auteur_principal_prenom} {submission.auteur_principal_nom}</p>
+                                                    <p className="submission-author">{submission.auteur_principal_prenom} {submission.auteur_principal_nom}</p>
                                                 </div>
                                                 <div className="submission-meta">
-                                                    <span className={`status-badge ${getStatusBadge(submission.statut).class}`}>{getStatusBadge(submission.statut).text}</span>
-                                                    <span className="submission-date">{new Date(submission.created_at).toLocaleDateString()}</span>
+                                                    <span className={`status-badge status-${submission.statut === 'acceptee' ? 'accepted' : submission.statut === 'refusee' ? 'rejected' : 'pending'}`}>
+                                                        {submission.statut}
+                                                    </span>
                                                 </div>
                                             </div>
                                         ))}
@@ -549,6 +580,33 @@ const AdminDashboard = () => {
                                     </div>
                                 ) : (
                                     <div className="activity-placeholder"><p>No sessions or workshops yet.</p></div>
+                                )}
+                            </div>
+                            <div className="admin-recent-activity">
+                                <h2>Recent Participants</h2>
+                                {recentParticipants.length > 0 ? (
+                                    <div className="submissions-list">
+                                        {recentParticipants.map((participant) => (
+                                            <div
+                                                key={participant.inscriptionId}
+                                                className="submission-item"
+                                                onClick={() => navigate('/admin/participants', { state: { eventId: selectedEventId } })}
+                                                style={{ cursor: 'pointer' }}
+                                            >
+                                                <div className="submission-info">
+                                                    <h4>{participant.prenom} {participant.nom}</h4>
+                                                    <p className="submission-author">{participant.email || participant.role}</p>
+                                                </div>
+                                                <div className="submission-meta">
+                                                    <span className={`status-badge status-${participant.statut_paiement === 'paye_sur_place' || participant.statut_paiement === 'paye_en_ligne' ? 'accepted' : 'pending'}`}>
+                                                        {participant.statut_paiement || 'en attente'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="activity-placeholder"><p>No recent participants yet.</p></div>
                                 )}
                             </div>
                         </div>

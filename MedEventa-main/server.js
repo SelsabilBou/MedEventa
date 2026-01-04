@@ -1,6 +1,7 @@
 // server.js
 require("dotenv").config();
 const express = require("express");
+const path = require("path");
 const authRoutes = require("./routes/auth.routes");
 const eventRoutes = require("./routes/event.routes");
 const workshopRoutes = require("./routes/workshop.routes"); // added
@@ -31,7 +32,10 @@ app.use((req, res, next) => {
 // Enable CORS manually (allows direct calls from port 5173 to 3000)
 app.use((req, res, next) => {
   // Always specific origin for credentials support
-  res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+  const origin = req.headers.origin;
+  if (origin && (origin === "http://localhost:5173" || origin === "http://localhost:5174" || origin === "http://localhost:5175")) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
   res.header("Access-Control-Allow-Credentials", "true");
@@ -53,28 +57,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Direct test route
-app.get("/api/direct-ping", (req, res) => res.json({ message: "Direct ping works" }));
-
-// Route to list all registered routes (Debug)
-app.get("/api/debug-routes", (req, res) => {
-  const routes = [];
-  function print(path, layer) {
-    if (layer.route) {
-      layer.route.stack.forEach(print.bind(null, path + (layer.route.path || '')));
-    } else if (layer.name === 'router' && layer.handle.stack) {
-      layer.handle.stack.forEach(print.bind(null, path + (layer.regexp.source.replace('\\/?(?=\\/|$)', '').replace('^', '').replace('\\/', '/'))));
-    } else if (layer.method) {
-      routes.push(`${layer.method.toUpperCase()} ${path}`);
-    }
-  }
-  app._router.stack.forEach(print.bind(null, ''));
-  res.json(routes);
-});
+// Serve static files from uploads folder
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes principales
 app.use("/api/auth", authRoutes);
-app.use("/api/events", statsRoutes); // mount stats under /api/events
+app.use("/api/events", statsRoutes);
 app.use("/api/events", workshopRoutes); // mount workshops under /api/events
 app.use("/api/events", submissionRoutes); // mount submissions under /api/events
 app.use("/api/events", eventRoutes); // eventRoutes last because it has generic /:id

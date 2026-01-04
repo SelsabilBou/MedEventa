@@ -156,7 +156,11 @@ const ParticipantDashboard = ({ registrations = [] }) => {
         <div className="pd-sidebar-header">
           <div className="pd-user-info">
             <div className="pd-user-avatar">
-              {user?.prenom?.charAt(0) || "U"}
+              {(user?.photo || user?.photoUrl) ? (
+                <img src={user.photo || user.photoUrl} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                user?.prenom?.charAt(0) || "U"
+              )}
             </div>
             <div className="pd-user-details">
               <span className="pd-user-name">

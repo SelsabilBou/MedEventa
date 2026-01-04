@@ -137,12 +137,28 @@ const withdrawSubmission = (submissionId, userId, callback) => {
   });
 };
 
+// Get all submissions across all events (for Super Admin)
+const getAllSubmissions = (callback) => {
+  const sql = `
+    SELECT c.*, e.titre as event_titre, u.nom as auteur_nom, u.prenom as auteur_prenom, c.etat as statut
+    FROM communication c
+    JOIN evenement e ON c.evenement_id = e.id
+    JOIN utilisateur u ON c.auteur_id = u.id
+    ORDER BY c.date_soumission DESC
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) return callback(err);
+    callback(null, rows);
+  });
+};
+
 module.exports = {
   createSubmission,
   getSubmissionById,
   updateSubmission,
   deleteSubmission,
   setSubmissionStatus,
+  getAllSubmissions,
 
   // phase 4
   logSubmissionHistory,

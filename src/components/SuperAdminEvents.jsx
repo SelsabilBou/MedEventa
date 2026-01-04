@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import SuperAdminLayout from "./SuperAdminLayout";
+import api from "../api/axios";
 import { FiSearch, FiToggleLeft, FiToggleRight, FiUser, FiCalendar, FiMapPin } from "react-icons/fi";
 import "./SuperAdminEvents.css";
 
@@ -19,11 +20,8 @@ const SuperAdminEvents = () => {
 
     const fetchEvents = async () => {
         try {
-            const response = await fetch("/api/events");
-            if (response.ok) {
-                const data = await response.json();
-                setEvents(data || []);
-            }
+            const response = await api.get("/api/events");
+            setEvents(response.data || []);
         } catch (error) {
             console.error("Error fetching events:", error);
         }
@@ -74,17 +72,9 @@ const SuperAdminEvents = () => {
         if (!confirm(`Are you sure you want to ${action} this event?`)) return;
 
         try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`/api/events/${eventId}/toggle`, {
-                method: "PUT",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ disabled: newStatus })
-            });
+            const response = await api.put(`/api/events/${eventId}/toggle`, { disabled: newStatus });
 
-            if (response.ok) {
+            if (response.status === 200) {
                 alert(`Event ${action}d successfully!`);
                 fetchEvents();
             } else {
@@ -92,7 +82,7 @@ const SuperAdminEvents = () => {
             }
         } catch (error) {
             console.error(`Error ${action}ing event:`, error);
-            alert(`Failed to ${action} event`);
+            alert(`Failed to ${action} event: ${error.response?.data?.message || error.message}`);
         }
     };
 

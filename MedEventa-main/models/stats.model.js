@@ -70,9 +70,63 @@ function participantsByCountry(eventId, callback) {
   });
 }
 
+// 5) Global Platform Overview
+function getGlobalOverview(callback) {
+  const stats = {};
+
+  // Total Events
+  db.query("SELECT COUNT(*) AS total FROM evenement", (err, rows) => {
+    if (err) return callback(err);
+    stats.totalEvents = rows[0]?.total || 0;
+
+    // Total Submissions
+    db.query("SELECT COUNT(*) AS total FROM communication", (err, rows) => {
+      if (err) return callback(err);
+      stats.totalSubmissions = rows[0]?.total || 0;
+
+      // Total Participants (Count unique authors or unique registrants)
+      db.query("SELECT COUNT(DISTINCT participant_id) AS total FROM inscription", (err, rows) => {
+        if (err) return callback(err);
+        stats.totalParticipants = rows[0]?.total || 0;
+
+        // Avg Acceptance Rate
+        const sqlAcc = `
+          SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN etat = 'acceptee' THEN 1 ELSE 0 END) AS accepted
+          FROM communication
+        `;
+        db.query(sqlAcc, (err, rows) => {
+          if (err) return callback(err);
+          const totalComm = Number(rows[0]?.total || 0);
+          const acceptedComm = Number(rows[0]?.accepted || 0);
+          stats.avgAcceptanceRate = totalComm === 0 ? 0 : Math.round((acceptedComm / totalComm) * 100);
+
+          // Most Active Events (Top 5)
+          const sqlActive = `
+            SELECT
+              e.id, e.titre, e.lieu, e.date_debut, e.date_fin,
+              (SELECT COUNT(*) FROM communication c WHERE c.evenement_id = e.id) as submissionsCount,
+              (SELECT COUNT(*) FROM inscription i WHERE i.evenement_id = e.id) as participantsCount
+            FROM evenement e
+            ORDER BY (submissionsCount + participantsCount) DESC
+            LIMIT 5
+          `;
+          db.query(sqlActive, (err, rows) => {
+            if (err) return callback(err);
+            stats.mostActiveEvents = rows;
+            callback(null, stats);
+          });
+        });
+      });
+    });
+  });
+}
+
 module.exports = {
   countSubmissions,
   acceptanceRate,
   submissionsByInstitution,
-  participantsByCountry
+  participantsByCountry,
+  getGlobalOverview
 };

@@ -182,6 +182,9 @@ const getParticipantsController = (req, res) => {
       statut_paiement: row.statut_paiement,
       badge: row.badge,
       date_inscription: row.date_inscription,
+      workshops: row.workshops,
+      sessions: row.sessions,
+      communications: row.communications,
     }));
 
     res.json({ eventId: Number(eventId), participants });

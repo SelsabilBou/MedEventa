@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import SuperAdminLayout from "./SuperAdminLayout";
+import api from "../api/axios";
 import {
     FiSearch, FiPlus, FiEdit2, FiTrash2, FiLock, FiUserCheck,
     FiUserX, FiX, FiSave
@@ -35,32 +36,8 @@ const SuperAdminUsers = () => {
 
     const fetchUsers = async () => {
         try {
-            const token = localStorage.getItem("token");
-            // Note: This endpoint may need to be created in the backend
-            const response = await fetch("/api/auth/users", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data && data.length > 0) {
-                    setUsers(data);
-                } else {
-                    // MOCK DATA EXAMPLE
-                    setUsers([
-                        { id: 101, nom: "Doe", prenom: "John", email: "john@example.com", role: "participant", institution: "Health Inst", pays: "USA" },
-                        { id: 102, nom: "Smith", prenom: "Alice", email: "alice@example.com", role: "organizer", institution: "Event Corp", pays: "UK" },
-                        { id: 103, nom: "Brown", prenom: "Robert", email: "bob@example.com", role: "superadmin", institution: "MedEventa", pays: "France" },
-                    ]);
-                }
-            } else {
-                // Fallback to mock data (Example)
-                setUsers([
-                    { id: 101, nom: "Doe", prenom: "John", email: "john@example.com", role: "participant", institution: "Health Inst", pays: "USA" },
-                    { id: 102, nom: "Smith", prenom: "Alice", email: "alice@example.com", role: "organizer", institution: "Event Corp", pays: "UK" },
-                    { id: 103, nom: "Brown", prenom: "Robert", email: "bob@example.com", role: "superadmin", institution: "MedEventa", pays: "France" },
-                ]);
-            }
+            const response = await api.get("/api/users");
+            setUsers(response.data || []);
         } catch (error) {
             console.error("Error fetching users:", error);
         }
@@ -87,57 +64,53 @@ const SuperAdminUsers = () => {
     const handleCreateUser = async (e) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem("token");
-            const response = await fetch("/api/auth/register", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(userForm)
-            });
+            const payload = {
+                ...userForm,
+                nom: userForm.nom.trim(),
+                prenom: userForm.prenom.trim(),
+                email: userForm.email.trim(),
+                mot_de_passe: userForm.password, // backend expects mot_de_passe
+                role: userForm.role.toUpperCase() // backend expects uppercase
+            };
+            const response = await api.post("/api/auth/register", payload);
 
-            if (response.ok) {
+            if (response.status === 200 || response.status === 201) {
                 alert("User created successfully!");
                 setShowCreateModal(false);
                 resetForm();
                 fetchUsers();
             } else {
-                const error = await response.json();
-                alert(`Error: ${error.message || "Failed to create user"}`);
+                alert(`Error: ${response.data.message || "Failed to create user"}`);
             }
         } catch (error) {
             console.error("Error creating user:", error);
-            alert("Failed to create user");
+            const errorMsg = error.response?.data?.message || "Failed to create user";
+            alert(`Error: ${errorMsg}`);
         }
     };
 
     const handleUpdateUser = async (e) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`/api/users/${selectedUser.id}`, {
-                method: "PUT",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(userForm)
-            });
+            const payload = {
+                ...userForm,
+                role: userForm.role.toUpperCase()
+            };
+            const response = await api.put(`/api/users/${selectedUser.id}`, payload);
 
-            if (response.ok) {
+            if (response.status === 200) {
                 alert("User updated successfully!");
                 setShowEditModal(false);
                 setSelectedUser(null);
                 resetForm();
                 fetchUsers();
             } else {
-                const error = await response.json();
-                alert(`Error: ${error.message || "Failed to update user"}`);
+                alert(`Error: ${response.data.message || "Failed to update user"}`);
             }
         } catch (error) {
             console.error("Error updating user:", error);
-            alert("Failed to update user");
+            const errorMsg = error.response?.data?.message || "Failed to update user";
+            alert(`Error: ${errorMsg}`);
         }
     };
 
@@ -145,24 +118,18 @@ const SuperAdminUsers = () => {
         if (!confirm("Are you sure you want to permanently delete this user? This action cannot be undone.")) return;
 
         try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`/api/auth/users/${userId}`, {
-                method: "DELETE",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                }
-            });
+            const response = await api.delete(`/api/auth/users/${userId}`);
 
-            if (response.ok) {
+            if (response.status === 200) {
                 alert("User deleted successfully!");
                 fetchUsers();
             } else {
-                const data = await response.json();
-                alert(`Failed to delete user: ${data.message}`);
+                alert(`Failed to delete user: ${response.data.message || "Unknown error"}`);
             }
         } catch (error) {
             console.error("Error deleting user:", error);
-            alert("Failed to delete user");
+            const errorMsg = error.response?.data?.message || "Failed to delete user";
+            alert(`Error: ${errorMsg}`);
         }
     };
 
@@ -170,24 +137,17 @@ const SuperAdminUsers = () => {
         if (!confirm("Are you sure you want to reset this user's password?")) return;
 
         try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`/api/users/${userId}/reset-password`, {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                }
-            });
+            const response = await api.post(`/api/users/${userId}/reset-password`);
 
-            if (response.ok) {
-                const data = await response.json();
-                alert(`Password reset successfully! New password: ${data.newPassword || "Check email"}`);
+            if (response.status === 200) {
+                alert(`Password reset successfully! New password: ${response.data.newPassword || "Check email"}`);
             } else {
                 alert("Failed to reset password");
             }
         } catch (error) {
             console.error("Error resetting password:", error);
-            alert("Failed to reset password");
+            const errorMsg = error.response?.data?.message || "Failed to reset password";
+            alert(`Error: ${errorMsg}`);
         }
     };
 
@@ -254,11 +214,12 @@ const SuperAdminUsers = () => {
                     </div>
                     <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
                         <option value="all">All Roles</option>
-                        <option value="superadmin">Super Admin</option>
-                        <option value="admin">Admin</option>
-                        <option value="organizer">Organizer</option>
-                        <option value="communicant">Author</option>
-                        <option value="participant">Participant</option>
+                        <option value="SUPER_ADMIN">Super Admin</option>
+                        <option value="ORGANISATEUR">Organizer</option>
+                        <option value="COMMUNICANT">Author</option>
+                        <option value="PARTICIPANT">Participant</option>
+                        <option value="MEMBRE_COMITE">Committee Member</option>
+                        <option value="RESP_WORKSHOP">Workshop Manager</option>
                     </select>
                 </div>
 
@@ -279,7 +240,13 @@ const SuperAdminUsers = () => {
                             {filteredUsers.map((user) => (
                                 <tr key={user.id}>
                                     <td className="user-name">
-                                        <div className="user-avatar">{user.prenom?.charAt(0) || "U"}</div>
+                                        <div className="user-avatar">
+                                            {(user.photo || user.photoUrl) ? (
+                                                <img src={user.photo || user.photoUrl} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                            ) : (
+                                                user.prenom?.charAt(0) || "U"
+                                            )}
+                                        </div>
                                         {user.prenom} {user.nom}
                                     </td>
                                     <td>{user.email}</td>

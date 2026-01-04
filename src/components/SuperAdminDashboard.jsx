@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import SuperAdminLayout from "./SuperAdminLayout";
+import api from "../api/axios";
 import { FiCalendar, FiFileText, FiUsers, FiTrendingUp, FiActivity } from "react-icons/fi";
 import "./SuperAdminDashboard.css";
 
@@ -14,101 +15,29 @@ const SuperAdminDashboard = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchGlobalStats();
-        fetchMostActiveEvents();
+        fetchDashboardData();
     }, []);
 
-    const fetchGlobalStats = async () => {
+    const fetchDashboardData = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem("token");
+            const response = await api.get("/api/events/global/overview");
 
-            // Fetch all events
-            const eventsRes = await fetch("/api/events");
-            const events = eventsRes.ok ? await eventsRes.json() : [];
-
-            // Calculate global stats from all events
-            let totalSubmissions = 0;
-            let totalParticipants = 0;
-            let totalAcceptanceRates = [];
-
-            for (const event of events) {
-                try {
-                    const statsRes = await fetch(`/api/events/${event.id}/stats`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-
-                    if (statsRes.ok) {
-                        const eventStats = await statsRes.json();
-                        totalSubmissions += eventStats.submissionsCount || 0;
-                        totalParticipants += eventStats.participantsByCountry?.reduce((sum, p) => sum + (p.count || 0), 0) || 0;
-
-                        if (eventStats.acceptanceRate?.rate) {
-                            totalAcceptanceRates.push(eventStats.acceptanceRate.rate);
-                        }
-                    }
-                } catch (err) {
-                    console.error(`Error fetching stats for event ${event.id}:`, err);
-                }
+            if (response.status === 200) {
+                const data = response.data;
+                console.log("Dashboard data received:", data);
+                setStats({
+                    totalEvents: data.totalEvents || 0,
+                    totalSubmissions: data.totalSubmissions || 0,
+                    totalParticipants: data.totalParticipants || 0,
+                    avgAcceptanceRate: data.avgAcceptanceRate || 0
+                });
+                setMostActiveEvents(data.mostActiveEvents || []);
             }
-
-            const avgAcceptanceRate = totalAcceptanceRates.length > 0
-                ? totalAcceptanceRates.reduce((a, b) => a + b, 0) / totalAcceptanceRates.length
-                : 0;
-
-            setStats({
-                totalEvents: events.length,
-                totalSubmissions,
-                totalParticipants,
-                avgAcceptanceRate: Math.round(avgAcceptanceRate)
-            });
         } catch (error) {
-            console.error("Error fetching global stats:", error);
+            console.error("Error fetching dashboard data:", error);
         } finally {
             setLoading(false);
-        }
-    };
-
-    const fetchMostActiveEvents = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const eventsRes = await fetch("/api/events");
-
-            if (eventsRes.ok) {
-                const events = await eventsRes.json();
-
-                // Fetch stats for each event and sort by activity
-                const eventsWithStats = await Promise.all(
-                    events.slice(0, 10).map(async (event) => {
-                        try {
-                            const statsRes = await fetch(`/api/events/${event.id}/stats`, {
-                                headers: { Authorization: `Bearer ${token}` }
-                            });
-
-                            if (statsRes.ok) {
-                                const stats = await statsRes.json();
-                                return {
-                                    ...event,
-                                    submissionsCount: stats.submissionsCount || 0,
-                                    participantsCount: stats.participantsByCountry?.reduce((sum, p) => sum + (p.count || 0), 0) || 0
-                                };
-                            }
-                        } catch (err) {
-                            console.error(`Error fetching stats for event ${event.id}:`, err);
-                        }
-                        return { ...event, submissionsCount: 0, participantsCount: 0 };
-                    })
-                );
-
-                // Sort by total activity (submissions + participants)
-                const sorted = eventsWithStats.sort((a, b) =>
-                    (b.submissionsCount + b.participantsCount) - (a.submissionsCount + a.participantsCount)
-                );
-
-                setMostActiveEvents(sorted.slice(0, 5));
-            }
-        } catch (error) {
-            console.error("Error fetching most active events:", error);
         }
     };
 

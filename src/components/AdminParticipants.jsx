@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
 import AdminLayout from "./AdminLayout";
 import { FiUsers, FiSearch, FiMail, FiDownload, FiDollarSign } from "react-icons/fi";
+import { useLocation } from "react-router-dom";
 import "./AdminParticipants.css";
 
 const AdminParticipants = () => {
+    const location = useLocation();
     const [searchTerm, setSearchTerm] = useState("");
     const [participants, setParticipants] = useState([]);
     const [events, setEvents] = useState([]);
-    const [selectedEventId, setSelectedEventId] = useState("");
+    const [selectedEventId, setSelectedEventId] = useState(location.state?.eventId || "");
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -26,7 +28,7 @@ const AdminParticipants = () => {
             if (response.ok) {
                 const data = await response.json();
                 setEvents(data);
-                if (data.length > 0) {
+                if (data.length > 0 && !selectedEventId) {
                     setSelectedEventId(data[0].id);
                 }
             }
@@ -39,15 +41,29 @@ const AdminParticipants = () => {
         try {
             setLoading(true);
             const token = localStorage.getItem("token");
-            const response = await fetch(`/api/events/${selectedEventId}/inscriptions`, {
+            // Correct endpoint: /api/inscriptions/event/:eventId/participants
+            const response = await fetch(`/api/inscriptions/event/${selectedEventId}/participants`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             if (response.ok) {
                 const data = await response.json();
-                setParticipants(data || []);
+                // Map backend fields to frontend state
+                const mapped = (data.participants || []).map(p => ({
+                    id: p.inscriptionId,
+                    utilisateurId: p.utilisateurId,
+                    nom: p.nom,
+                    prenom: p.prenom,
+                    email: p.email,
+                    role: p.profil,
+                    etat_paiement: p.statut_paiement,
+                    created_at: p.date_inscription,
+                    workshops: p.workshops,
+                    sessions: p.sessions,
+                    communications: p.communications
+                }));
+                setParticipants(mapped);
             } else {
-                // Fallback to mock data if endpoint not ready
                 setParticipants([]);
             }
         } catch (error) {
@@ -61,13 +77,13 @@ const AdminParticipants = () => {
     const handleUpdatePayment = async (inscriptionId, newStatus) => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`/api/inscriptions/${inscriptionId}/payment`, {
+            const response = await fetch(`/api/inscriptions/${inscriptionId}/payment-status`, {
                 method: "PUT",
                 headers: {
                     "Authorization": `Bearer ${token}`,
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ etat_paiement: newStatus })
+                body: JSON.stringify({ statut_paiement: newStatus })
             });
 
             if (response.ok) {
@@ -91,7 +107,7 @@ const AdminParticipants = () => {
     );
 
     const getPaymentStatusBadge = (status) => {
-        if (status === "paye" || status === "paid") {
+        if (status === "paye" || status === "paid" || status === "paye_sur_place" || status === "paye_en_ligne") {
             return <span className="status-badge status-accepted">Paid</span>;
         }
         return <span className="status-badge status-pending">To Pay</span>;
@@ -110,20 +126,17 @@ const AdminParticipants = () => {
                     </div>
                 </header>
 
-                <div className="event-selector" style={{ marginBottom: "2rem" }}>
-                    <label style={{ fontWeight: 600, marginRight: "1rem" }}>Select Event:</label>
-                    <select
-                        value={selectedEventId}
-                        onChange={(e) => setSelectedEventId(e.target.value)}
-                        style={{ padding: "0.5rem 1rem", borderRadius: "8px", border: "1px solid #e2e8f0" }}
-                    >
-                        {events.map(event => (
-                            <option key={event.id} value={event.id}>{event.titre || event.name}</option>
-                        ))}
-                    </select>
-                </div>
-
                 <div className="table-controls">
+                    <div className="event-selector-admin">
+                        <select
+                            value={selectedEventId}
+                            onChange={(e) => setSelectedEventId(e.target.value)}
+                        >
+                            {events.map(event => (
+                                <option key={event.id} value={event.id}>{event.titre || event.name}</option>
+                            ))}
+                        </select>
+                    </div>
                     <div className="search-input-wrapper">
                         <FiSearch className="search-icon" />
                         <input
@@ -139,11 +152,11 @@ const AdminParticipants = () => {
                     <table className="admin-table">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Email</th>
+                                <th>Participant</th>
+                                <th>Contact</th>
                                 <th>Role</th>
-                                <th>Payment Status</th>
-                                <th>Reg. Date</th>
+                                <th>Involvement</th>
+                                <th>Payment</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -155,22 +168,52 @@ const AdminParticipants = () => {
                                             <div className="user-avatar">
                                                 {(participant.prenom || participant.nom || "U").charAt(0)}
                                             </div>
-                                            <span>{participant.prenom} {participant.nom}</span>
+                                            <div style={{ display: "flex", flexDirection: "column" }}>
+                                                <span style={{ fontWeight: 600 }}>{participant.prenom} {participant.nom}</span>
+                                                <span style={{ fontSize: "0.75rem", color: "#6c8895" }}>Registered: {new Date(participant.created_at || Date.now()).toLocaleDateString()}</span>
+                                            </div>
                                         </div>
                                     </td>
-                                    <td>{participant.email}</td>
-                                    <td>{participant.role || "Participant"}</td>
+                                    <td>
+                                        <div style={{ fontSize: "0.9rem" }}>{participant.email}</div>
+                                    </td>
+                                    <td>
+                                        <span className="role-badge" style={{ fontSize: "0.8rem", textTransform: "uppercase", color: "#6c8895" }}>
+                                            {participant.role || "Participant"}
+                                        </span>
+                                    </td>
+                                    <td style={{ maxWidth: "300px" }}>
+                                        <div className="involvement-details" style={{ fontSize: "0.85rem" }}>
+                                            {participant.workshops && (
+                                                <div title={participant.workshops} style={{ marginBottom: "0.25rem" }}>
+                                                    <strong>Workshops:</strong> <span style={{ color: "#0f9d8a" }}>{participant.workshops}</span>
+                                                </div>
+                                            )}
+                                            {participant.sessions && (
+                                                <div title={participant.sessions} style={{ marginBottom: "0.25rem" }}>
+                                                    <strong>Sessions:</strong> <span style={{ color: "#3182ce" }}>{participant.sessions}</span>
+                                                </div>
+                                            )}
+                                            {participant.communications && (
+                                                <div title={participant.communications}>
+                                                    <strong>Papers:</strong> <span style={{ fontStyle: "italic", color: "#718096" }}>{participant.communications}</span>
+                                                </div>
+                                            )}
+                                            {!participant.workshops && !participant.sessions && !participant.communications && (
+                                                <span style={{ color: "#a0aec0" }}>Attendee only</span>
+                                            )}
+                                        </div>
+                                    </td>
                                     <td>
                                         {getPaymentStatusBadge(participant.etat_paiement)}
                                     </td>
-                                    <td>{new Date(participant.created_at || Date.now()).toLocaleDateString()}</td>
                                     <td className="col-actions">
                                         <button className="btn-table-action" title="Send Email"><FiMail /></button>
                                         <button
                                             className="btn-table-action"
                                             title="Update Payment"
                                             onClick={() => {
-                                                const newStatus = participant.etat_paiement === "paye" ? "a_payer" : "paye";
+                                                const newStatus = (participant.etat_paiement === "paye_sur_place" || participant.etat_paiement === "paye_en_ligne") ? "a_payer" : "paye_sur_place";
                                                 handleUpdatePayment(participant.id, newStatus);
                                             }}
                                         >

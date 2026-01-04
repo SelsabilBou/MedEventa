@@ -634,7 +634,11 @@ const Messages = () => {
                     >
                       <div className="message-item-main">
                         <div className="message-item-avatar">
-                          <FaUser />
+                          {(message.photo || message.photoUrl) ? (
+                            <img src={message.photo || message.photoUrl} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                          ) : (
+                            <FaUser />
+                          )}
                         </div>
                         <div className="message-item-content">
                           <div className="message-item-header">

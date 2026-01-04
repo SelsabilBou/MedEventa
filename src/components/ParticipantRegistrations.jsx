@@ -97,11 +97,15 @@ const ParticipantRegistrations = ({ registrations = [] }) => {
           <div className="pr-sidebar-header">
             <div className="pr-user-info">
               <div className="pr-user-avatar">
-                {JSON.parse(localStorage.getItem("user") || "{}")?.name?.charAt(0) || "U"}
+                {(JSON.parse(localStorage.getItem("user") || "{}")?.photo || JSON.parse(localStorage.getItem("user") || "{}")?.photoUrl) ? (
+                  <img src={JSON.parse(localStorage.getItem("user") || "{}")?.photo || JSON.parse(localStorage.getItem("user") || "{}")?.photoUrl} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                ) : (
+                  JSON.parse(localStorage.getItem("user") || "{}")?.name?.charAt(0) || "U"
+                )}
               </div>
               <div className="pr-user-details">
                 <span className="pr-user-name">
-                  {JSON.parse(localStorage.getItem("user") || "{}")?.name || "User"}
+                  {JSON.parse(localStorage.getItem("user") || "{}")?.prenom ? `${JSON.parse(localStorage.getItem("user") || "{}")?.prenom} ${JSON.parse(localStorage.getItem("user") || "{}")?.nom || ""}` : (JSON.parse(localStorage.getItem("user") || "{}")?.name || "User")}
                 </span>
                 <span className="pr-user-role">Participant</span>
               </div>

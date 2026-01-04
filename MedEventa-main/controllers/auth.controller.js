@@ -3,6 +3,8 @@ const jwt = require("jsonwebtoken");
 const db = require("../db");
 const crypto = require("crypto"); // pour les codes temporaires
 const nodemailer = require("nodemailer"); // pour envoyer les emails
+const fs = require("fs");
+const path = require("path");
 
 // Tous les rôles possibles (doivent être les mêmes que l'ENUM dans la table utilisateur)
 const ALL_ROLES = [
@@ -370,19 +372,49 @@ const updateMe = (req, res) => {
     "prenom",
     "email",
     "photo",
+    "photoUrl",
     "institution",
     "domaine_recherche",
+    "bio",
   ];
+
   const updates = {};
   for (const k of allowed) {
-    if (req.body[k] !== undefined) updates[k] = req.body[k];
+    if (req.body[k] !== undefined) {
+      if (k === "photoUrl") updates["photo"] = req.body[k];
+      else if (k === "bio") updates["biographie"] = req.body[k];
+      else updates[k] = req.body[k];
+    }
+  }
+
+  // Handle Base64 Image
+  if (updates.photo && updates.photo.startsWith("data:image")) {
+    try {
+      const base64Data = updates.photo.split(",")[1];
+      const mimeType = updates.photo.split(";")[0].split(":")[1];
+      let extension = mimeType.split("/")[1];
+      if (extension === "jpeg") extension = "jpg";
+
+      const filename = `avatar-${userId}-${Date.now()}.${extension}`;
+      const dirPath = path.join(__dirname, "..", "uploads", "avatars");
+
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+      }
+
+      const filePath = path.join(dirPath, filename);
+      fs.writeFileSync(filePath, base64Data, "base64");
+
+      updates.photo = `/uploads/avatars/${filename}`;
+    } catch (err) {
+      console.error("Error saving avatar:", err);
+    }
   }
 
   if (Object.keys(updates).length === 0) {
     return res.status(400).json({ message: "Aucun champ à mettre à jour" });
   }
 
-  // بناء SET ديناميكي
   const keys = Object.keys(updates);
   const setSql = keys.map((k) => `${k} = ?`).join(", ");
   const values = keys.map((k) => updates[k]);
@@ -391,12 +423,17 @@ const updateMe = (req, res) => {
 
   db.query(sql, [...values, userId], (err, result) => {
     if (err) {
-      // إذا email unique ودار conflict يطيح هنا (ER_DUP_ENTRY)
       console.error("Erreur DB updateMe:", err);
       return res.status(500).json({ message: "Erreur serveur" });
     }
 
-    return res.json({ message: "Profil mis à jour" });
+    // Récupérer et renvoyer l'utilisateur mis à jour
+    db.query("SELECT id, nom, prenom, email, role, photo, institution, domaine_recherche, biographie as bio FROM utilisateur WHERE id = ?", [userId], (err2, rows) => {
+      if (err2 || rows.length === 0) {
+        return res.json({ message: "Profil mis à jour" });
+      }
+      res.json({ message: "Profil mis à jour", user: rows[0] });
+    });
   });
 };
 
