@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create a central axios instance
 const instance = axios.create({
-    // Direct call to port 3000 (bypassing Vite proxy)
+    // Backend runs on port 3000
     baseURL: 'http://localhost:3000',
 });
 

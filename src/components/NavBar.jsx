@@ -8,7 +8,31 @@ import api from "../api/axios";
 const Navbar = () => {
   const [user, setUser] = useState(() => {
     const raw = localStorage.getItem("user");
-    return raw ? JSON.parse(raw) : null;
+    const token = localStorage.getItem("token");
+
+    // Only consider user logged in if both user data AND token exist
+    if (!raw || !token) {
+      // Clear any stale data
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      // Validate user has required properties
+      if (!parsed || (!parsed.nom && !parsed.prenom && !parsed.email)) {
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        return null;
+      }
+      return parsed;
+    } catch (e) {
+      // Invalid JSON, clear it
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      return null;
+    }
   });
 
   const [openMenu, setOpenMenu] = useState(false);

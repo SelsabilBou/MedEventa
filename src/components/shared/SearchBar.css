@@ -1,0 +1,147 @@
+/* ===========================================
+   Shared Dashboard Search Bar Styles
+   Premium, consistent styling for all dashboards
+   =========================================== */
+
+/* Search Container */
+.search-bar-container,
+.search-box-container {
+    margin-bottom: 1.5rem;
+}
+
+/* Search Wrapper - Modern Glass Effect */
+.search-input-wrapper,
+.search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 0;
+    min-height: 52px;
+    max-width: 450px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+.search-input-wrapper:hover,
+.search-box:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.search-input-wrapper:focus-within,
+.search-box:focus-within {
+    border-color: #0f9d8a;
+    box-shadow: 0 0 0 4px rgba(15, 157, 138, 0.1), 0 4px 12px rgba(15, 157, 138, 0.08);
+}
+
+/* Search Icon */
+.search-input-wrapper .search-icon,
+.search-box svg,
+.search-icon {
+    position: absolute;
+    left: 1rem;
+    color: #94a3b8;
+    font-size: 1.15rem;
+    transition: color 0.25s ease;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.search-input-wrapper:focus-within .search-icon,
+.search-box:focus-within svg {
+    color: #0f9d8a;
+}
+
+/* Search Input */
+.search-input-wrapper input,
+.search-box input {
+    flex: 1;
+    width: 100%;
+    padding: 0.95rem 1rem 0.95rem 2.9rem;
+    border: none;
+    background: transparent;
+    font-size: 0.95rem;
+    font-weight: 450;
+    color: #1e293b;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.search-input-wrapper input::placeholder,
+.search-box input::placeholder {
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+/* Full Width Variant */
+.search-input-wrapper.full-width,
+.search-box.full-width {
+    max-width: 100%;
+}
+
+/* Compact Variant */
+.search-input-wrapper.compact,
+.search-box.compact {
+    min-height: 44px;
+    border-radius: 10px;
+}
+
+.search-input-wrapper.compact input,
+.search-box.compact input {
+    padding: 0.75rem 1rem 0.75rem 2.6rem;
+    font-size: 0.9rem;
+}
+
+/* Dark Theme Variant (for headers) */
+.search-input-wrapper.dark,
+.search-box.dark {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.search-input-wrapper.dark input,
+.search-box.dark input {
+    color: white;
+}
+
+.search-input-wrapper.dark input::placeholder,
+.search-box.dark input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.search-input-wrapper.dark .search-icon,
+.search-box.dark svg {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.search-input-wrapper.dark:focus-within,
+.search-box.dark:focus-within {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(15, 157, 138, 0.6);
+}
+
+/* Table Controls Search */
+.table-controls .search-input-wrapper,
+.filters-bar .search-box {
+    flex: 1;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+
+    .search-input-wrapper,
+    .search-box {
+        max-width: 100%;
+        min-height: 48px;
+    }
+
+    .search-input-wrapper input,
+    .search-box input {
+        padding: 0.8rem 1rem 0.8rem 2.6rem;
+        font-size: 0.9rem;
+    }
+}

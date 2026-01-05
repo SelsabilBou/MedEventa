@@ -598,8 +598,10 @@ const AdminDashboard = () => {
                                                     <p className="submission-author">{participant.email || participant.role}</p>
                                                 </div>
                                                 <div className="submission-meta">
-                                                    <span className={`status-badge status-${participant.statut_paiement === 'paye_sur_place' || participant.statut_paiement === 'paye_en_ligne' ? 'accepted' : 'pending'}`}>
-                                                        {participant.statut_paiement || 'en attente'}
+                                                    <span className={`status-badge ${participant.statut_paiement === 'paye_sur_place' || participant.statut_paiement === 'paye_en_ligne' ? 'status-accepted' : 'status-pending'}`}>
+                                                        {participant.statut_paiement === 'paye_sur_place' ? 'Paid On-site' :
+                                                            participant.statut_paiement === 'paye_en_ligne' ? 'Paid Online' :
+                                                                'Not Paid'}
                                                     </span>
                                                 </div>
                                             </div>
