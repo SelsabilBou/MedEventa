@@ -1,4 +1,4 @@
-// controllers/stats.controller.js
+
 const { validationResult } = require('express-validator');
 const StatsModel = require('../models/stats.model');
 

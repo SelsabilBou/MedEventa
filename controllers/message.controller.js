@@ -1,7 +1,7 @@
 const { validationResult } = require('express-validator');
 const { createMessage, getMessagesForUser } = require('../models/message.model');
 const { getNotificationsForUser, getUnreadCountForUser, createNotification } = require('../models/notification.model');
-// POST /api/messages/send
+
 const sendMessage = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -38,7 +38,7 @@ const sendMessage = async (req, res) => {
   }
 };
 
-// GET /api/messages
+
 const getMessages = async (req, res) => {
   try {
     const userId = req.user.id; // destinataire connecté
@@ -52,7 +52,7 @@ const getMessages = async (req, res) => {
     return res.status(500).json({ message: 'Erreur serveur lors de la récupération des messages' });
   }
 };
-// GET /api/dashboard/activity
+
 const getDashboardActivity = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -74,7 +74,7 @@ const getDashboardActivity = async (req, res) => {
     return res.status(500).json({ message: 'Erreur serveur lors du chargement du tableau de bord' });
   }
 };
-// POST /api/messages/broadcast/workshop/:workshopId
+
 const sendWorkshopBroadcast = async (req, res) => {
   try {
     const expediteur_id = req.user.id;
@@ -114,7 +114,7 @@ const sendWorkshopBroadcast = async (req, res) => {
   }
 };
 
-// PUT /api/messages/:id/read
+
 const markAsReadController = (req, res) => {
   const messageId = req.params.id;
   const userId = req.user.id;

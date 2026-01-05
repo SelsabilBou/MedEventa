@@ -1,9 +1,7 @@
-// controllers/question.controller.js
-const { validationResult } = require('express-validator');
+const { validationResult } = require('express-validator');// gerer les questions-repnses en direct 
 const db = require('../db');
 const { createQuestion, voteQuestion } = require('../models/question.model');
 
-// POST /events/:eventId/questions/submit
 const submitQuestionController = (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -69,7 +67,7 @@ const doesQuestionExist = (questionId, callback) => {
   });
 }
 
-const voteQuestionController = (req, res) => {
+const voteQuestionController = (req, res) => {// system de vote
   const questionId = parseInt(req.params.questionId, 10);
   const userId = req.user.id;
 

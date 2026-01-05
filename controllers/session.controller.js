@@ -1,4 +1,4 @@
-const db = require('../db');
+const db = require('../db');// gerer les sessions de programme d'un evenement scientifique
 const fs = require('fs');
 const path = require('path');
 const { validationResult } = require('express-validator');
@@ -23,7 +23,7 @@ const createSessionController = (req, res) => {
     const eventId = req.params.eventId;
     const { titre, horaire, salle, president_id } = req.body;
 
-    // 🔥 PROTECTION : vérifier req.user existe
+    // vérifier req.user existe
     if (!req.user || !req.user.id) {
         return res.status(401).json({ message: 'Utilisateur non authentifié' });
     }
@@ -75,7 +75,7 @@ const createSessionController = (req, res) => {
     });
 };
 
-// POST /sessions/:sessionId/assign-communication
+
 const assignCommunicationController = (req, res) => {
     const sessionId = req.params.sessionId;
     const { communicationId } = req.body;
