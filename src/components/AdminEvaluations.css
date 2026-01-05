@@ -27,17 +27,45 @@
     display: flex;
     align-items: center;
     background: white;
-    padding: 0.5rem 1rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    width: 300px;
+    padding: 0;
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
+    width: 350px;
+    min-height: 50px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+.search-box:focus-within {
+    border-color: #0f9d8a;
+    box-shadow: 0 0 0 4px rgba(15, 157, 138, 0.1);
+}
+
+.search-box svg {
+    position: absolute;
+    left: 1rem;
+    color: #94a3b8;
+    font-size: 1.15rem;
+    transition: color 0.25s ease;
+}
+
+.search-box:focus-within svg {
+    color: #0f9d8a;
 }
 
 .search-box input {
     border: none;
     outline: none;
-    margin-left: 0.5rem;
+    padding: 0.9rem 1rem 0.9rem 2.8rem;
     width: 100%;
+    font-size: 0.95rem;
+    color: #1e293b;
+    background: transparent;
+}
+
+.search-box input::placeholder {
+    color: #94a3b8;
 }
 
 .tabs {

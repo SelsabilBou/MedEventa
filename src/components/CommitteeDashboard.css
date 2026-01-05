@@ -121,30 +121,50 @@
     display: flex;
     align-items: center;
     background: white;
-    border: 1px solid #e5e7eb;
-    padding: 0 1.25rem;
-    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    padding: 0;
+    border-radius: 14px;
     width: 350px;
-    transition: all 0.25s ease;
+    min-height: 50px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+.search-box:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .search-box:focus-within {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    border-color: #0f9d8a;
+    box-shadow: 0 0 0 4px rgba(15, 157, 138, 0.1);
 }
 
 .search-box svg {
-    color: #2563eb;
-    font-size: 1.1rem;
+    position: absolute;
+    left: 1rem;
+    color: #94a3b8;
+    font-size: 1.15rem;
+    transition: color 0.25s ease;
+}
+
+.search-box:focus-within svg {
+    color: #0f9d8a;
 }
 
 .search-box input {
     border: none;
-    padding: 0.85rem 1rem;
+    padding: 0.9rem 1rem 0.9rem 2.8rem;
     width: 100%;
     outline: none;
     font-size: 0.95rem;
-    color: #111827;
+    color: #1e293b;
+    background: transparent;
+}
+
+.search-box input::placeholder {
+    color: #94a3b8;
 }
 
 /* Submissions Grid */
